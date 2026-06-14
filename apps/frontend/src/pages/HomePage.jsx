@@ -44,6 +44,11 @@ export default function HomePage() {
   const quickLinks = t("home.quickLinks");
   const clayList = t("clayCafePage.clayList");
   const workshopList = t("clayCafePage.workshopList");
+  const valeryHighlights = [
+    { icon: "/menuicon1.png", text: "Met aandacht en vakmanschap gemaakt" },
+    { icon: "/menuicon2.png", text: "Eerlijk, puur en authentiek" },
+    { icon: "/menuicon3.png", text: "Voor momenten die ertoe doen" },
+  ];
   const [agendaState, setAgendaState] = useState({ loading: true, error: "", items: [] });
   const [heroImageIndex, setHeroImageIndex] = useState(0);
 
@@ -140,7 +145,7 @@ export default function HomePage() {
                 <Typography color="text.secondary" sx={{ lineHeight: 1.8, fontSize: { xs: "1rem", md: "1.2rem" }, maxWidth: 500 }}>
                   {t("home.body1")}
                 </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2.25, width: "100%", maxWidth: 560, mt: 0.6 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2.25, width: "100%", maxWidth: 560, mt: 0.6, ml: { md: -1.5 } }}>
                   <Box sx={{ flex: 1, height: 2, backgroundColor: "rgba(67, 53, 39, 0.42)" }} />
                   <Box
                     component="img"
@@ -289,6 +294,88 @@ export default function HomePage() {
                 <Box component="img" src="/Gallery%20Icon.png" alt="" aria-hidden="true" sx={{ width: 66, height: 66, opacity: 0.6 }} />
               </Box>
             </Paper>
+          </Box>
+        </Paper>
+
+        <Paper
+          elevation={4}
+          sx={{
+            overflow: "hidden",
+            borderRadius: 5,
+            border: "1px solid rgba(191, 175, 152, 0.24)",
+            background: "linear-gradient(135deg, rgba(255,252,247,0.95) 0%, rgba(252,247,240,0.93) 100%)",
+          }}
+        >
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "0.45fr 0.95fr 0.35fr" } }}>
+            <Box sx={{ minHeight: { xs: 240, md: 320 }, position: "relative" }}>
+              <Box component="img" src="/vallerydraaien.jpg" alt="Valery aan de draaischijf" sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to right, rgba(255,248,240,0) 60%, rgba(255,248,240,0.88) 100%)",
+                }}
+              />
+            </Box>
+
+            <Stack spacing={1.5} sx={{ p: { xs: 2.2, md: 3.2 }, justifyContent: "center" }}>
+              <Typography variant="overline" sx={{ letterSpacing: "0.18em", color: "#7a6452" }}>
+                Over Valery
+              </Typography>
+              <Typography
+                variant="h2"
+                sx={{
+                  fontFamily: '"Cormorant Garamond", "Times New Roman", serif',
+                  fontWeight: 600,
+                  lineHeight: 1.02,
+                  fontSize: { xs: "2.1rem", md: "3rem" },
+                }}
+              >
+                Het verhaal achter
+                <br />
+                Pottenbakkerij Grolle
+              </Typography>
+              <Typography color="text.secondary" sx={{ lineHeight: 1.8 }}>
+                Mijn liefde voor klei begon al op jonge leeftijd. Na jaren van dromen, leren en doen heb ik een plek gecreeerd waar ambacht,
+                creativiteit en rust samenkomen.
+              </Typography>
+              <Typography color="text.secondary" sx={{ lineHeight: 1.8 }}>
+                Hier maak ik met liefde keramiek en begeleid ik anderen om de magie van klei zelf te ervaren.
+              </Typography>
+              <Typography sx={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif', fontStyle: "italic", fontSize: "2rem", color: "#bf9b8c", lineHeight: 1 }}>
+                Valery
+              </Typography>
+              <Button
+                component={RouterLink}
+                to="/over-grolle"
+                variant="contained"
+                sx={{ alignSelf: "flex-start", pl: { xs: 5, md: 5.6 }, pr: 3.2, mt: 0.6 }}
+              >
+                Lees mijn verhaal
+              </Button>
+            </Stack>
+
+            <Stack spacing={2} sx={{ p: { xs: 2.2, md: 3.2 }, justifyContent: "center", borderLeft: { lg: "1px solid rgba(191, 175, 152, 0.2)" } }}>
+              {valeryHighlights.map((item) => (
+                <Box key={item.text} sx={{ display: "grid", gridTemplateColumns: "50px 1fr", gap: 1.2, alignItems: "center" }}>
+                  <Box
+                    sx={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: "50%",
+                      border: "1px solid rgba(191, 175, 152, 0.55)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: "rgba(255,255,255,0.7)",
+                    }}
+                  >
+                    <Box component="img" src={item.icon} alt="" aria-hidden="true" sx={{ width: 24, height: 24, opacity: 0.75 }} />
+                  </Box>
+                  <Typography sx={{ color: "#5b4b3d", lineHeight: 1.5, fontWeight: 500 }}>{item.text}</Typography>
+                </Box>
+              ))}
+            </Stack>
           </Box>
         </Paper>
 

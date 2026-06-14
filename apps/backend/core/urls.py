@@ -1,0 +1,43 @@
+from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
+
+from .views import (
+    ActivityListView,
+    BookingCancelView,
+    BookingDetailView,
+    GuestBookingCreateView,
+    BookingListCreateView,
+    BookingRescheduleView,
+    HealthcheckView,
+    LoginView,
+    MyBookingsView,
+    PlanningDetailView,
+    PlanningListCreateView,
+    ProductListView,
+    ProfileView,
+    RoomListView,
+    RegisterView,
+    RoleCheckView,
+    TimeslotAvailabilityView,
+)
+
+urlpatterns = [
+    path("healthz/", HealthcheckView.as_view(), name="healthz"),
+    path("products/", ProductListView.as_view(), name="products"),
+    path("activities/", ActivityListView.as_view(), name="activities"),
+    path("rooms/", RoomListView.as_view(), name="rooms"),
+    path("auth/register/", RegisterView.as_view(), name="auth-register"),
+    path("auth/login/", LoginView.as_view(), name="auth-login"),
+    path("auth/token/refresh/", TokenRefreshView.as_view(), name="auth-token-refresh"),
+    path("auth/profile/", ProfileView.as_view(), name="auth-profile"),
+    path("auth/role-check/", RoleCheckView.as_view(), name="auth-role-check"),
+    path("planning/", PlanningListCreateView.as_view(), name="planning-list-create"),
+    path("planning/<int:pk>/", PlanningDetailView.as_view(), name="planning-detail"),
+    path("timeslots/available/", TimeslotAvailabilityView.as_view(), name="timeslot-available"),
+    path("bookings/", BookingListCreateView.as_view(), name="booking-list-create"),
+    path("bookings/guest/", GuestBookingCreateView.as_view(), name="booking-guest-create"),
+    path("bookings/mine/", MyBookingsView.as_view(), name="booking-mine"),
+    path("bookings/<int:pk>/", BookingDetailView.as_view(), name="booking-detail"),
+    path("bookings/<int:pk>/cancel/", BookingCancelView.as_view(), name="booking-cancel"),
+    path("bookings/<int:pk>/reschedule/", BookingRescheduleView.as_view(), name="booking-reschedule"),
+]

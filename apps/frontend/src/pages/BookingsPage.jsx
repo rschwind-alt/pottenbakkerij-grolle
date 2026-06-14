@@ -208,7 +208,7 @@ export default function BookingsPage() {
     contactName: user?.first_name || user?.username || "",
     contactEmail: user?.email || "",
     contactPhone: "",
-    participants: 1,
+    participants: "1",
     notes: "",
   });
   const [error, setError] = useState("");
@@ -401,11 +401,18 @@ export default function BookingsPage() {
       return;
     }
 
-    const nextParticipants = Math.max(1, Math.min(Number(form.participants || 1), Number(selectedSlot.available_spots || 1)));
-    if (nextParticipants !== Number(form.participants || 1)) {
-      setForm((current) => ({ ...current, participants: nextParticipants }));
-    }
-  }, [selectedSlot, form.participants]);
+    setForm((current) => {
+      const currentParticipants = Number(current.participants || 1);
+      const maxParticipants = Number(selectedSlot.available_spots || 1);
+      const nextParticipants = Math.max(1, Math.min(currentParticipants, maxParticipants));
+
+      if (nextParticipants === currentParticipants && String(current.participants || "") === String(nextParticipants)) {
+        return current;
+      }
+
+      return { ...current, participants: String(nextParticipants) };
+    });
+  }, [selectedSlot?.id, selectedSlot?.available_spots]);
 
   const goNext = () => {
     setError("");
@@ -1005,17 +1012,23 @@ export default function BookingsPage() {
         <Grid item xs={12} md={6}>
           <TextField
             label={t("bookingsPage.participantsLabel")}
-            type="number"
+            type="text"
             fullWidth
             required
-            inputProps={{ min: 1, max: selectedSlot?.available_spots || 1, step: 1 }}
+            inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
             value={form.participants}
             helperText={selectedSlot ? t("bookingsPage.maxParticipants", { count: selectedSlot.available_spots }) : ""}
             onChange={(event) => {
-              const raw = Number(event.target.value || 1);
-              const max = selectedSlot ? Number(selectedSlot.available_spots || 1) : raw;
-              const clamped = Math.max(1, Math.min(raw, max));
-              setForm((current) => ({ ...current, participants: clamped }));
+              const raw = event.target.value.replace(/\D/g, "");
+              setForm((current) => ({ ...current, participants: raw }));
+            }}
+            onBlur={() => {
+              setForm((current) => {
+                const currentParticipants = Number(current.participants || 1);
+                const maxParticipants = selectedSlot ? Number(selectedSlot.available_spots || 1) : currentParticipants;
+                const nextParticipants = Math.max(1, Math.min(currentParticipants, maxParticipants));
+                return { ...current, participants: String(nextParticipants) };
+              });
             }}
           />
         </Grid>

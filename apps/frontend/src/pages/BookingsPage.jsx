@@ -1096,6 +1096,10 @@ export default function BookingsPage() {
       step: t("bookingsPage.steps.0"),
       title: t("bookingsPage.step1Title"),
       body: t("bookingsPage.step1Body"),
+      summary:
+        selectedActivity
+          ? t("bookingsPage.selectedActivityLine", { value: selectedActivity.name })
+          : "",
     },
     {
       step: t("bookingsPage.steps.1"),
@@ -1105,16 +1109,31 @@ export default function BookingsPage() {
         : t("bookingsPage.lastUpdate", {
             time: lastUpdated ? lastUpdated.toLocaleTimeString(locale) : t("bookingsPage.notLoadedYet"),
           }),
+      summary:
+        selectedSlot
+          ? t("bookingsPage.selectedTimeslotLine", {
+              title: selectedSlot.title,
+              date: formatDateTime(selectedSlot.starts_at, locale),
+            })
+          : "",
     },
     {
       step: t("bookingsPage.steps.2"),
       title: t("bookingsPage.step3Title"),
       body: t("bookingsPage.step3Body"),
+      summary:
+        form.contactName
+          ? t("bookingsPage.selectedContactLine", {
+              name: form.contactName,
+              participants: form.participants,
+            })
+          : "",
     },
     {
       step: t("bookingsPage.steps.3"),
       title: t("bookingsPage.step4Title"),
       body: t("bookingsPage.step4Body"),
+      summary: "",
     },
   ];
 
@@ -1240,7 +1259,15 @@ export default function BookingsPage() {
               <Grid container spacing={1.5}>
                 {flowItems.map((item, index) => {
                   const isCurrent = index === activeStep;
-                  const isHighlighted = confirmation ? true : isCurrent;
+                  const isCompleted = confirmation ? true : index < activeStep;
+                  const isHighlighted = confirmation ? true : isCurrent || isCompleted;
+                  const statusLabel = isCompleted
+                    ? t("bookingsPage.stepAccepted")
+                    : isCurrent
+                      ? t("bookingsPage.stepCurrent")
+                      : t("bookingsPage.stepPending");
+                  const statusColor = isCompleted ? "success" : isCurrent ? "secondary" : "default";
+                  const showSummary = Boolean(item.summary) && (isCompleted || isCurrent || confirmation);
                   return (
                     <Grid item xs={12} sm={6} md={3} key={item.step}>
                       <Paper
@@ -1257,12 +1284,23 @@ export default function BookingsPage() {
                           <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: "0.18em", fontWeight: 700 }} color="secondary.main">
                             {item.step}
                           </Typography>
+                          <Chip
+                            size="small"
+                            label={statusLabel}
+                            color={statusColor}
+                            sx={{ alignSelf: "flex-start", height: 22 }}
+                          />
                           <Typography variant="h6" sx={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif', fontWeight: 600 }}>
                             {item.title}
                           </Typography>
                           <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
                             {item.body}
                           </Typography>
+                          {showSummary && (
+                            <Typography variant="body2" sx={{ lineHeight: 1.5, fontWeight: 600 }}>
+                              {item.summary}
+                            </Typography>
+                          )}
                         </Stack>
                       </Paper>
                     </Grid>

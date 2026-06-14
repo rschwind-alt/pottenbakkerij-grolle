@@ -116,6 +116,21 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_HEADERS = list(default_headers)
 
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@pottenbakkerijgrolle.nl")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
+BOOKING_CONFIRMATION_EMAIL_ENABLED = env_bool("BOOKING_CONFIRMATION_EMAIL_ENABLED", True)
+BOOKING_CONFIRMATION_BCC = [
+    email.strip()
+    for email in os.getenv("BOOKING_CONFIRMATION_BCC", "").split(",")
+    if email.strip()
+]
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

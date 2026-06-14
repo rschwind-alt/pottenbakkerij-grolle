@@ -10,6 +10,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
 
 from .i18n import tr
+from .emails import send_booking_confirmation_email
 from .models import Booking, Product, RoleChoices, Timeslot
 from .models import Activity, Room
 from .permissions import IsAdminOrMedewerker, IsBookingOwnerOrStaff, get_user_role
@@ -263,7 +264,9 @@ class BookingListCreateView(generics.ListCreateAPIView):
                     )
                 }
             )
-        serializer.save(customer=self.request.user, timeslot=locked_timeslot)
+        booking = serializer.save(customer=self.request.user, timeslot=locked_timeslot)
+        language = getattr(self.request, "LANGUAGE_CODE", "nl")
+        transaction.on_commit(lambda: send_booking_confirmation_email(booking, language=language))
 
 
 class GuestBookingCreateView(generics.CreateAPIView):
@@ -291,7 +294,9 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 }
             )
 
-        serializer.save(timeslot=locked_timeslot, customer=None, status=Booking.BookingStatus.NEW)
+        booking = serializer.save(timeslot=locked_timeslot, customer=None, status=Booking.BookingStatus.NEW)
+        language = getattr(self.request, "LANGUAGE_CODE", "nl")
+        transaction.on_commit(lambda: send_booking_confirmation_email(booking, language=language))
 
 
 class BookingDetailView(generics.RetrieveAPIView):

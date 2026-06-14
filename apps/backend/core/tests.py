@@ -13,6 +13,8 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core import mail
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -210,6 +212,17 @@ class BookingCreateTests(BaseTestCase):
             format="json",
         )
         self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_authenticated_booking_sends_confirmation_email(self):
+        self.klant1.email = "klant1@example.com"
+        self.klant1.save(update_fields=["email"])
+
+        res = _jwt(self.klant1).post(reverse("booking-list-create"), {"timeslot": self.slot.pk})
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("klant1@example.com", mail.outbox[0].to)
+        self.assertIn(str(res.data["id"]), mail.outbox[0].subject)
 
 
 # ---------------------------------------------------------------------------
@@ -487,3 +500,20 @@ class GuestBookingTests(BaseTestCase):
             format="json",
         )
         self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_guest_booking_sends_confirmation_email(self):
+        res = self.client.post(
+            reverse("booking-guest-create"),
+            {
+                "timeslot": self.slot.pk,
+                "guest_name": "Gast Voorbeeld",
+                "guest_email": "gast@example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("gast@example.com", mail.outbox[0].to)
+        self.assertIn(str(res.data["id"]), mail.outbox[0].subject)

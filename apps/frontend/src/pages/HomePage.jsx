@@ -502,7 +502,7 @@ export default function HomePage() {
                                   pl: 5.6,
                                   pr: 2,
                                   py: 0.65,
-                                  "&:hover": { backgroundColor: "#b37782" },
+                                  "&:hover": { backgroundColor: "#c26576" },
                                 }}
                               >
                                 {t("home.agendaBookNow")}

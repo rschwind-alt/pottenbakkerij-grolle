@@ -163,6 +163,37 @@ Voor deployment:
 - Activeer TLS in reverse proxy / load balancer
 - Voeg CI/CD, testpipeline en secrets management toe
 
+### Productie Deploy (Nginx Only)
+
+Gebruik voor productie standaard alleen `db`, `backend`, `frontend` en laat host-nginx reverse proxy doen.
+
+1. Eerste keer op server:
+
+```bash
+chmod +x scripts/deploy-prod-nginx.sh
+```
+
+2. Uitrollen:
+
+```bash
+./scripts/deploy-prod-nginx.sh
+```
+
+3. Handmatig alternatief:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build db backend frontend
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Optioneel Caddy Starten
+
+Caddy staat bewust in apart bestand en start niet mee bij normale productie deploy:
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.caddy.yml up -d caddy
+```
+
 ## Volgende Uitbreidingsstappen Voor Webshop
 
 - Nieuwe Django apps: `shop`, `orders`, `payments`, `customers`

@@ -44,11 +44,7 @@ export default function HomePage() {
   const quickLinks = t("home.quickLinks");
   const clayList = t("clayCafePage.clayList");
   const workshopList = t("clayCafePage.workshopList");
-  const valeryHighlights = [
-    { icon: "/menuicon1.png", text: "Met aandacht en vakmanschap gemaakt" },
-    { icon: "/menuicon2.png", text: "Eerlijk, puur en authentiek" },
-    { icon: "/menuicon3.png", text: "Voor momenten die ertoe doen" },
-  ];
+  const valeryHighlights = t("home.valeryHighlights");
   const [agendaState, setAgendaState] = useState({ loading: true, error: "", items: [] });
   const [heroImageIndex, setHeroImageIndex] = useState(0);
 
@@ -320,7 +316,7 @@ export default function HomePage() {
 
             <Stack spacing={1.5} sx={{ p: { xs: 2.2, md: 3.2 }, justifyContent: "center" }}>
               <Typography variant="overline" sx={{ letterSpacing: "0.18em", color: "#7a6452" }}>
-                Over Valery
+                {t("home.valeryEyebrow")}
               </Typography>
               <Typography
                 variant="h2"
@@ -331,19 +327,18 @@ export default function HomePage() {
                   fontSize: { xs: "2.1rem", md: "3rem" },
                 }}
               >
-                Het verhaal achter
+                {t("home.valeryTitleLine1")}
                 <br />
-                Pottenbakkerij Grolle
+                {t("home.valeryTitleLine2")}
               </Typography>
               <Typography color="text.secondary" sx={{ lineHeight: 1.8 }}>
-                Mijn liefde voor klei begon al op jonge leeftijd. Na jaren van dromen, leren en doen heb ik een plek gecreeerd waar ambacht,
-                creativiteit en rust samenkomen.
+                {t("home.valeryBody1")}
               </Typography>
               <Typography color="text.secondary" sx={{ lineHeight: 1.8 }}>
-                Hier maak ik met liefde keramiek en begeleid ik anderen om de magie van klei zelf te ervaren.
+                {t("home.valeryBody2")}
               </Typography>
               <Typography sx={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif', fontStyle: "italic", fontSize: "2rem", color: "#bf9b8c", lineHeight: 1 }}>
-                Valery
+                {t("home.valerySignature")}
               </Typography>
               <Button
                 component={RouterLink}
@@ -351,7 +346,7 @@ export default function HomePage() {
                 variant="contained"
                 sx={{ alignSelf: "flex-start", pl: { xs: 5, md: 5.6 }, pr: 3.2, mt: 0.6 }}
               >
-                Lees mijn verhaal
+                {t("home.valeryCta")}
               </Button>
             </Stack>
 
@@ -475,21 +470,44 @@ export default function HomePage() {
                       <Grid item xs={12} md={4} key={item.id}>
                         <Paper variant="outlined" sx={{ p: 2.2, borderRadius: 3, height: "100%", backgroundColor: "rgba(255,255,255,0.76)" }}>
                           <Stack spacing={1}>
-                            <Typography variant="overline" color="secondary.main" sx={{ lineHeight: 1 }}>
+                            <Typography variant="overline" color="secondary.main" sx={{ lineHeight: 1, fontSize: "1.3125rem" }}>
                               {date.day}
                             </Typography>
-                            <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: "0.18em", display: "block", mt: -0.4 }}>
+                            <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: "0.18em", display: "block", mt: -0.4, fontSize: "1.3125rem" }}>
                               {date.month}
                             </Typography>
                             <Typography variant="h6" sx={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif', fontWeight: 600, lineHeight: 1.15 }}>
                               {item.title}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: "1.3125rem", lineHeight: 1.2 }}>
                               {formatTimeRange(item.starts_at, item.ends_at, locale)}
                             </Typography>
                             <Typography variant="caption" sx={{ alignSelf: "flex-start", px: 1, py: 0.5, borderRadius: 999, backgroundColor: item.available_spots > 0 ? "rgba(219,236,219,0.92)" : "rgba(240,225,225,0.92)" }}>
                               {item.available_spots > 0 ? t("home.agendaSpots", { count: item.available_spots }) : t("home.agendaSoldOut")}
                             </Typography>
+                            {item.available_spots > 0 && (
+                              <Button
+                                component={RouterLink}
+                                to={{
+                                  pathname: "/bookings",
+                                  search: `?activity=${item.activity}&timeslot=${item.id}&date=${item.starts_at.slice(0, 10)}`,
+                                }}
+                                variant="contained"
+                                sx={{
+                                  alignSelf: "flex-start",
+                                  mt: 0.6,
+                                  borderRadius: 999,
+                                  backgroundColor: "#c58b93",
+                                  color: "#111",
+                                  pl: 5.6,
+                                  pr: 2,
+                                  py: 0.65,
+                                  "&:hover": { backgroundColor: "#b37782" },
+                                }}
+                              >
+                                {t("home.agendaBookNow")}
+                              </Button>
+                            )}
                           </Stack>
                         </Paper>
                       </Grid>

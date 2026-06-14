@@ -95,6 +95,20 @@ function maxDateKey(left, right) {
   return left > right ? left : right;
 }
 
+function computeInitialWeekOffset(dateKey) {
+  const todayWeek = startOfIsoWeek(new Date());
+  const targetDate = new Date(`${dateKey}T00:00:00`);
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return 0;
+  }
+
+  const targetWeek = startOfIsoWeek(targetDate);
+  const diffMs = targetWeek.getTime() - todayWeek.getTime();
+  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  return Math.max(0, diffWeeks);
+}
+
 function startOfIsoWeek(date) {
   const result = new Date(date);
   const day = result.getDay();
@@ -179,13 +193,14 @@ export default function BookingsPage() {
   const initialDate = searchParams.get("date") || todayValue();
   const initialTimeslotId = searchParams.get("timeslot") || "";
   const isDirectActivityFlow = Boolean(initialActivityId);
+  const initialWeekOffset = isDirectActivityFlow ? computeInitialWeekOffset(initialDate) : 0;
   const autoAdvanceFromQueryRef = useRef(Boolean(initialTimeslotId));
   const [activities, setActivities] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [allPlanningSlots, setAllPlanningSlots] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [activeStep, setActiveStep] = useState(initialActivityId ? 1 : 0);
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [weekOffset, setWeekOffset] = useState(initialWeekOffset);
   const [form, setForm] = useState({
     activityId: initialActivityId,
     date: initialDate,
@@ -485,6 +500,7 @@ export default function BookingsPage() {
       });
       setActiveStep(isDirectActivityFlow ? 1 : 0);
       await Promise.all([loadActivities(), loadAvailableSlots(), ...(isAuthenticated ? [loadDashboard()] : [])]);
+      setError("");
     } catch (err) {
       setError(err.message || t("bookingsPage.bookingFailed"));
     } finally {
@@ -1224,6 +1240,7 @@ export default function BookingsPage() {
               <Grid container spacing={1.5}>
                 {flowItems.map((item, index) => {
                   const isCurrent = index === activeStep;
+                  const isHighlighted = confirmation ? true : isCurrent;
                   return (
                     <Grid item xs={12} sm={6} md={3} key={item.step}>
                       <Paper
@@ -1232,8 +1249,8 @@ export default function BookingsPage() {
                           p: 2,
                           height: "100%",
                           borderRadius: 3,
-                          borderColor: isCurrent ? "secondary.main" : "rgba(140, 124, 104, 0.22)",
-                          backgroundColor: isCurrent ? "rgba(244, 231, 217, 0.95)" : "rgba(255,255,255,0.72)",
+                          borderColor: isHighlighted ? "secondary.main" : "rgba(140, 124, 104, 0.22)",
+                          backgroundColor: isHighlighted ? "rgba(244, 231, 217, 0.95)" : "rgba(255,255,255,0.72)",
                         }}
                       >
                         <Stack spacing={0.6}>

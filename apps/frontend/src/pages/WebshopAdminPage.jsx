@@ -28,6 +28,75 @@ const emptyForm = {
   is_active: true,
 };
 
+const MAX_IMAGE_SIDE = 2000;
+const TARGET_IMAGE_BYTES = 1_500_000;
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Kon afbeelding niet lezen."));
+      image.src = String(reader.result || "");
+    };
+    reader.onerror = () => reject(new Error("Kon bestand niet lezen."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function canvasToBlob(canvas, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
+  });
+}
+
+async function compressImageFile(file) {
+  if (!file || !String(file.type || "").startsWith("image/")) {
+    return { file, compressed: false };
+  }
+
+  if (file.size <= TARGET_IMAGE_BYTES) {
+    return { file, compressed: false };
+  }
+
+  const image = await loadImageFromFile(file);
+  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return { file, compressed: false };
+  }
+  context.drawImage(image, 0, 0, width, height);
+
+  const qualitySteps = [0.86, 0.78, 0.7, 0.62, 0.55];
+  let bestBlob = null;
+
+  for (const quality of qualitySteps) {
+    const blob = await canvasToBlob(canvas, quality);
+    if (!blob) {
+      continue;
+    }
+    bestBlob = blob;
+    if (blob.size <= TARGET_IMAGE_BYTES) {
+      break;
+    }
+  }
+
+  if (!bestBlob) {
+    return { file, compressed: false };
+  }
+
+  const baseName = file.name.replace(/\.[^.]+$/, "") || "upload";
+  const compressedFile = new File([bestBlob], `${baseName}.jpg`, { type: "image/jpeg" });
+  return { file: compressedFile, compressed: compressedFile.size < file.size };
+}
+
 export default function WebshopAdminPage() {
   const { authFetch } = useAuth();
   const { language } = useLanguage();
@@ -38,6 +107,7 @@ export default function WebshopAdminPage() {
   const [form, setForm] = useState(emptyForm);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [imageNotice, setImageNotice] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -126,6 +196,7 @@ export default function WebshopAdminPage() {
     }));
     setImageFile(null);
     setImagePreviewUrl("");
+    setImageNotice("");
   };
 
   const startEdit = (product) => {
@@ -144,6 +215,32 @@ export default function WebshopAdminPage() {
     });
     setImageFile(null);
     setImagePreviewUrl(product.image_url || "");
+    setImageNotice("");
+  };
+
+  const handleImageSelection = async (event) => {
+    const selected = event.target.files?.[0] || null;
+    if (!selected) {
+      setImageFile(null);
+      setImageNotice("");
+      return;
+    }
+
+    setImageNotice("");
+    try {
+      const { file: preparedFile, compressed } = await compressImageFile(selected);
+      setImageFile(preparedFile);
+      if (compressed) {
+        setImageNotice(
+          language === "de"
+            ? `Foto gecomprimeerd van ${(selected.size / 1024 / 1024).toFixed(1)} MB naar ${(preparedFile.size / 1024 / 1024).toFixed(1)} MB.`
+            : `Foto gecomprimeerd van ${(selected.size / 1024 / 1024).toFixed(1)} MB naar ${(preparedFile.size / 1024 / 1024).toFixed(1)} MB.`
+        );
+      }
+    } catch {
+      setImageFile(selected);
+      setImageNotice("");
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -359,11 +456,13 @@ export default function WebshopAdminPage() {
                       hidden
                       type="file"
                       accept="image/*"
-                      onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                      onChange={handleImageSelection}
                     />
                   </Button>
                   {imageFile && <Typography variant="body2">{imageFile.name}</Typography>}
                 </Stack>
+
+                {imageNotice && <Alert severity="info">{imageNotice}</Alert>}
 
                 {imagePreviewUrl && (
                   <Box

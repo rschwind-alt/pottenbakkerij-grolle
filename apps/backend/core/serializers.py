@@ -36,6 +36,13 @@ _ACTIVE_STATUSES = [
 User = get_user_model()
 
 
+def public_image_url(url: str) -> str:
+    value = (url or "").strip()
+    if value.startswith("/media/"):
+        return f"/api{value}"
+    return value
+
+
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
@@ -108,6 +115,10 @@ class ProductSerializer(serializers.ModelSerializer):
     group = serializers.PrimaryKeyRelatedField(read_only=True)
     group_name = serializers.CharField(source="group.name", read_only=True)
     group_slug = serializers.CharField(source="group.slug", read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        return public_image_url(obj.image_url)
 
     class Meta:
         model = Product
@@ -129,6 +140,10 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class ProductGroupSerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        return public_image_url(obj.image_url)
 
     class Meta:
         model = ProductGroup

@@ -1436,9 +1436,6 @@ export default function BookingsPage() {
                           <Typography variant="h6" sx={{ fontFamily: '"Cormorant Garamond", "Times New Roman", serif', fontWeight: 600 }}>
                             {item.title}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
-                            {item.body}
-                          </Typography>
                           {showSummary && (
                             <Typography variant="body2" sx={{ lineHeight: 1.5, fontWeight: 600 }}>
                               {item.summary}

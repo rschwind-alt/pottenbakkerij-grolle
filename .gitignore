@@ -10,6 +10,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 apps/backend/staticfiles/
+apps/backend/media/
 
 # Node
 node_modules/

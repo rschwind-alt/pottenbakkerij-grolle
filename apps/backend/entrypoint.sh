@@ -14,4 +14,17 @@ fi
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 
+# Seed media files from image into the media volume if not already present.
+if [ -d /app/media_seed ]; then
+  find /app/media_seed -type f | while read src; do
+    rel="${src#/app/media_seed/}"
+    dest="/app/media/${rel}"
+    if [ ! -f "$dest" ]; then
+      mkdir -p "$(dirname "$dest")"
+      cp "$src" "$dest"
+      echo "Seeded media: $dest"
+    fi
+  done
+fi
+
 exec "$@"

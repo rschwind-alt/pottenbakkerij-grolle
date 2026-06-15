@@ -113,6 +113,7 @@ export default function WebshopAdminPage() {
   const [saving, setSaving] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState(null);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [success, setSuccess] = useState("");
 
   const groupsById = useMemo(() => {
@@ -128,6 +129,7 @@ export default function WebshopAdminPage() {
     async function loadData() {
       setLoading(true);
       setError("");
+      setWarning("");
       try {
         const [groupsResponse, productsResponse] = await Promise.all([
           apiFetch("/api/product-groups/"),
@@ -201,6 +203,7 @@ export default function WebshopAdminPage() {
 
   const startEdit = (product) => {
     setError("");
+    setWarning("");
     setSuccess("");
     setEditingProductId(product.id);
     setForm({
@@ -246,6 +249,7 @@ export default function WebshopAdminPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    setWarning("");
     setSuccess("");
 
     if (!form.name.trim() || !form.group || !form.price) {
@@ -286,6 +290,13 @@ export default function WebshopAdminPage() {
         }
         return [saved, ...current];
       });
+      if (imageFile && !saved.image_url) {
+        setWarning(
+          language === "de"
+            ? "Product opgeslagen, maar de foto is niet op de server aangekomen. Controleer backend logs en media-volume."
+            : "Product opgeslagen, maar de foto is niet op de server aangekomen. Controleer backend logs en media-volume."
+        );
+      }
       setSuccess(
         isEditing
           ? (language === "de" ? "Product succesvol bijgewerkt." : "Product succesvol bijgewerkt.")
@@ -310,6 +321,7 @@ export default function WebshopAdminPage() {
     }
 
     setError("");
+    setWarning("");
     setSuccess("");
     setDeletingProductId(product.id);
     try {
@@ -356,6 +368,7 @@ export default function WebshopAdminPage() {
             </Typography>
 
             {error && <Alert severity="error">{error}</Alert>}
+            {warning && <Alert severity="warning">{warning}</Alert>}
             {success && <Alert severity="success">{success}</Alert>}
 
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.78)" }}>

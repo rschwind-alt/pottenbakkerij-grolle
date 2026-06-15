@@ -26,11 +26,35 @@ class Profile(models.Model):
         return f"{self.user.username} ({self.role})"
 
 
-class Product(models.Model):
+class ProductGroup(models.Model):
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=140, unique=True)
     description = models.TextField(blank=True)
+    image_url = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Product(models.Model):
+    group = models.ForeignKey(
+        ProductGroup,
+        on_delete=models.SET_NULL,
+        related_name="products",
+        null=True,
+        blank=True,
+    )
+    name = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=140, unique=True)
+    description = models.TextField(blank=True)
+    long_description = models.TextField(blank=True)
+    image_url = models.CharField(max_length=255, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_quantity = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -48,6 +72,48 @@ class AuditModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class WebshopOrder(AuditModel):
+    class OrderStatus(models.TextChoices):
+        NEW = "nieuw", "Nieuw"
+        SUBMITTED = "ingediend", "Ingediend"
+        CANCELED = "geannuleerd", "Geannuleerd"
+
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="webshop_orders",
+    )
+    guest_name = models.CharField(max_length=120, blank=True)
+    guest_email = models.EmailField(blank=True)
+    guest_phone = models.CharField(max_length=40, blank=True)
+    notes = models.TextField(blank=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    status = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.NEW)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        who = self.guest_name or self.guest_email or (self.customer.username if self.customer_id else "gast")
+        return f"Webshop bestelling {self.id} - {who}"
+
+
+class WebshopOrderItem(models.Model):
+    order = models.ForeignKey(WebshopOrder, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="order_items")
+    product_name = models.CharField(max_length=120)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self) -> str:
+        return f"{self.product_name} x{self.quantity}"
 
 
 class Activity(AuditModel):

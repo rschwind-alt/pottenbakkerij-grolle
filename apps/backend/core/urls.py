@@ -3,6 +3,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     ActivityListView,
+    AdminWebshopProductDetailView,
+    AdminWebshopProductManageView,
     BookingCancelView,
     BookingDetailView,
     GuestBookingCreateView,
@@ -16,16 +18,24 @@ from .views import (
     PlanningDetailView,
     PlanningListCreateView,
     ProductListView,
+    ProductGroupListView,
+    ProductDetailView,
     ProfileView,
     RoomListView,
     RegisterView,
     RoleCheckView,
     TimeslotAvailabilityView,
+    WebshopOrderCreateView,
 )
 
 urlpatterns = [
     path("healthz/", HealthcheckView.as_view(), name="healthz"),
+    path("product-groups/", ProductGroupListView.as_view(), name="product-groups"),
     path("products/", ProductListView.as_view(), name="products"),
+    path("products/<slug:slug>/", ProductDetailView.as_view(), name="product-detail"),
+    path("admin/webshop/products/", AdminWebshopProductManageView.as_view(), name="admin-webshop-products"),
+    path("admin/webshop/products/<int:pk>/", AdminWebshopProductDetailView.as_view(), name="admin-webshop-product-detail"),
+    path("webshop/orders/", WebshopOrderCreateView.as_view(), name="webshop-order-create"),
     path("activities/", ActivityListView.as_view(), name="activities"),
     path("rooms/", RoomListView.as_view(), name="rooms"),
     path("auth/register/", RegisterView.as_view(), name="auth-register"),

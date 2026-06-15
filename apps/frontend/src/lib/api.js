@@ -70,7 +70,8 @@ export function buildApiHeaders(headersInit) {
 
 export async function apiFetch(path, options = {}) {
   const headers = buildApiHeaders(options.headers);
-  if (!headers.has("Content-Type") && options.body) {
+  const isFormDataBody = typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (!headers.has("Content-Type") && options.body && !isFormDataBody) {
     headers.set("Content-Type", "application/json");
   }
 

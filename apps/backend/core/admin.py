@@ -1,13 +1,37 @@
 from django.contrib import admin
 
-from .models import Activity, Booking, PaymentIntent, Product, Profile, Room, Timeslot
+from .models import Activity, Booking, PaymentIntent, Product, ProductGroup, Profile, Room, Timeslot, WebshopOrder, WebshopOrderItem
+
+
+@admin.register(ProductGroup)
+class ProductGroupAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("name", "slug")
+    fields = ("name", "slug", "description", "image_url", "is_active")
 
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "price", "is_active", "updated_at")
-    list_filter = ("is_active",)
+    list_display = ("name", "group", "price", "stock_quantity", "is_active", "updated_at")
+    list_filter = ("group", "is_active")
     search_fields = ("name", "slug")
+    fields = ("group", "name", "slug", "description", "long_description", "image_url", "price", "stock_quantity", "is_active")
+
+
+class WebshopOrderItemInline(admin.TabularInline):
+    model = WebshopOrderItem
+    extra = 0
+    readonly_fields = ("product", "product_name", "unit_price", "quantity")
+    can_delete = False
+
+
+@admin.register(WebshopOrder)
+class WebshopOrderAdmin(admin.ModelAdmin):
+    list_display = ("id", "guest_name", "guest_email", "status", "total_amount", "created_at")
+    list_filter = ("status",)
+    search_fields = ("guest_name", "guest_email", "customer__username")
+    inlines = [WebshopOrderItemInline]
 
 
 @admin.register(Profile)

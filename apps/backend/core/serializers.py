@@ -1,12 +1,30 @@
+from collections import defaultdict
+import os
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.core.files.storage import default_storage
+from django.db import transaction
+from django.utils.text import slugify
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from django.db.models import Sum
 
 from .i18n import tr
-from .models import Activity, Booking, Room, Timeslot, Profile, RoleChoices
+from .models import (
+    Activity,
+    Booking,
+    Product,
+    ProductGroup,
+    Profile,
+    RoleChoices,
+    Room,
+    Timeslot,
+    WebshopOrder,
+    WebshopOrderItem,
+)
 from .permissions import get_user_role
 
 _ACTIVE_STATUSES = [
@@ -83,6 +101,255 @@ class ActivitySerializer(serializers.ModelSerializer):
             "default_duration_minutes",
             "default_room",
             "is_active",
+        ]
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    group = serializers.PrimaryKeyRelatedField(read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
+    group_slug = serializers.CharField(source="group.slug", read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "group",
+            "group_name",
+            "group_slug",
+            "name",
+            "slug",
+            "description",
+            "long_description",
+            "image_url",
+            "price",
+            "stock_quantity",
+            "is_active",
+        ]
+
+
+class ProductGroupSerializer(serializers.ModelSerializer):
+    product_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = ProductGroup
+        fields = ["id", "name", "slug", "description", "image_url", "is_active", "product_count"]
+
+
+class AdminWebshopProductSerializer(serializers.ModelSerializer):
+    image_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    slug = serializers.CharField(required=False, allow_blank=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "group",
+            "name",
+            "slug",
+            "description",
+            "long_description",
+            "price",
+            "stock_quantity",
+            "is_active",
+            "image_file",
+            "image_url",
+        ]
+        read_only_fields = ["image_url"]
+
+    def validate_slug(self, value):
+        value = (value or "").strip()
+        return slugify(value) if value else ""
+
+    def _build_unique_slug(self, slug_base, instance_id=None):
+        slug_base = slug_base or "product"
+        slug = slug_base
+        suffix = 2
+        queryset = Product.objects.all()
+        if instance_id:
+            queryset = queryset.exclude(pk=instance_id)
+
+        while queryset.filter(slug=slug).exists():
+            slug = f"{slug_base}-{suffix}"
+            suffix += 1
+        return slug
+
+    def create(self, validated_data):
+        image_file = validated_data.pop("image_file", None)
+        raw_slug = validated_data.pop("slug", "") or ""
+        slug_base = raw_slug or slugify(validated_data.get("name", "product")) or "product"
+        slug = self._build_unique_slug(slug_base)
+
+        product = Product.objects.create(slug=slug, **validated_data)
+
+        if image_file:
+            extension = os.path.splitext(getattr(image_file, "name", ""))[1].lower() or ".jpg"
+            file_name = f"webshop/uploads/{slug}-{uuid.uuid4().hex[:8]}{extension}"
+            saved_path = default_storage.save(file_name, image_file)
+            media_url = (self.context.get("media_url") or "/media/").rstrip("/")
+            product.image_url = f"{media_url}/{saved_path}"
+            product.save(update_fields=["image_url", "updated_at"])
+
+        return product
+
+    def update(self, instance, validated_data):
+        image_file = validated_data.pop("image_file", None)
+        raw_slug = validated_data.pop("slug", None)
+
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        if raw_slug is not None:
+            slug_base = raw_slug or slugify(validated_data.get("name") or instance.name) or "product"
+            instance.slug = self._build_unique_slug(slug_base, instance_id=instance.id)
+        elif "name" in validated_data and not instance.slug:
+            slug_base = slugify(instance.name) or "product"
+            instance.slug = self._build_unique_slug(slug_base, instance_id=instance.id)
+
+        instance.save()
+
+        if image_file:
+            extension = os.path.splitext(getattr(image_file, "name", ""))[1].lower() or ".jpg"
+            file_name = f"webshop/uploads/{instance.slug}-{uuid.uuid4().hex[:8]}{extension}"
+            saved_path = default_storage.save(file_name, image_file)
+            media_url = (self.context.get("media_url") or "/media/").rstrip("/")
+            instance.image_url = f"{media_url}/{saved_path}"
+            instance.save(update_fields=["image_url", "updated_at"])
+
+        return instance
+
+
+class WebshopOrderItemCreateSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1, max_value=50)
+
+    def validate_product_id(self, value):
+        product = Product.objects.filter(pk=value, is_active=True).first()
+        if not product:
+            raise serializers.ValidationError(
+                tr(
+                    "Product niet gevonden of niet actief.",
+                    "Produkt nicht gefunden oder nicht aktiv.",
+                )
+            )
+        self.context.setdefault("products", {})[value] = product
+        return value
+
+
+class WebshopOrderCreateSerializer(serializers.Serializer):
+    customer_name = serializers.CharField(max_length=120)
+    customer_email = serializers.EmailField()
+    customer_phone = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    items = WebshopOrderItemCreateSerializer(many=True, min_length=1)
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        items_data = validated_data.pop("items")
+
+        customer_name = validated_data.pop("customer_name")
+        customer_email = validated_data.pop("customer_email")
+        customer_phone = validated_data.pop("customer_phone", "")
+        notes = validated_data.pop("notes", "")
+
+        user = request.user if request and request.user and request.user.is_authenticated else None
+
+        requested_quantities = defaultdict(int)
+        for item in items_data:
+            requested_quantities[int(item["product_id"])] += int(item["quantity"])
+
+        with transaction.atomic():
+            locked_products = {
+                product.id: product
+                for product in Product.objects.select_for_update().filter(
+                    pk__in=requested_quantities.keys(),
+                    is_active=True,
+                )
+            }
+
+            missing_ids = [product_id for product_id in requested_quantities.keys() if product_id not in locked_products]
+            if missing_ids:
+                raise serializers.ValidationError(
+                    {
+                        "items": tr(
+                            "Een of meer producten zijn niet meer beschikbaar.",
+                            "Ein oder mehrere Produkte sind nicht mehr verfuegbar.",
+                        )
+                    }
+                )
+
+            out_of_stock = []
+            for product_id, requested_quantity in requested_quantities.items():
+                product = locked_products[product_id]
+                if product.stock_quantity < requested_quantity:
+                    out_of_stock.append(f"{product.name} ({product.stock_quantity})")
+
+            if out_of_stock:
+                product_list = ", ".join(out_of_stock)
+                raise serializers.ValidationError(
+                    {
+                        "items": tr(
+                            f"Onvoldoende voorraad voor: {product_list}.",
+                            f"Nicht genug Lagerbestand fuer: {product_list}.",
+                        )
+                    }
+                )
+
+            order = WebshopOrder.objects.create(
+                customer=user,
+                guest_name=customer_name,
+                guest_email=customer_email,
+                guest_phone=customer_phone,
+                notes=notes,
+                status=WebshopOrder.OrderStatus.SUBMITTED,
+            )
+
+            total = 0
+            for item in items_data:
+                product = locked_products[item["product_id"]]
+                quantity = int(item["quantity"])
+                line_total = product.price * quantity
+                total += line_total
+
+                WebshopOrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    product_name=product.name,
+                    unit_price=product.price,
+                    quantity=quantity,
+                )
+
+            for product_id, requested_quantity in requested_quantities.items():
+                product = locked_products[product_id]
+                product.stock_quantity -= requested_quantity
+                product.save(update_fields=["stock_quantity", "updated_at"])
+
+            order.total_amount = total
+            order.save(update_fields=["total_amount", "updated_at"])
+
+        return order
+
+
+class WebshopOrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WebshopOrderItem
+        fields = ["product", "product_name", "unit_price", "quantity"]
+
+
+class WebshopOrderSerializer(serializers.ModelSerializer):
+    items = WebshopOrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = WebshopOrder
+        fields = [
+            "id",
+            "status",
+            "guest_name",
+            "guest_email",
+            "guest_phone",
+            "notes",
+            "total_amount",
+            "created_at",
+            "items",
         ]
 
 

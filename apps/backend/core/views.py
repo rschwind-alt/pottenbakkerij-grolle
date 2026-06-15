@@ -1,20 +1,21 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import IntegerField, Sum, Value
+from django.db.models import Count, IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.translation import get_language
-from rest_framework import generics, permissions, serializers, status
+from rest_framework import generics, parsers, permissions, serializers, status
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 
 from .i18n import tr
-from .emails import send_booking_confirmation_email
-from .models import Booking, PaymentIntent, Product, RoleChoices, Timeslot
+from .emails import send_booking_confirmation_email, send_webshop_order_confirmation_email
+from .models import Booking, PaymentIntent, Product, ProductGroup, RoleChoices, Timeslot
 from .models import Activity, Room
 from .payments import (
     MolliePaymentError,
@@ -34,6 +35,11 @@ from .serializers import (
     RoomSerializer,
     RegisterSerializer,
     TimeslotAvailabilitySerializer,
+    ProductSerializer,
+    ProductGroupSerializer,
+    AdminWebshopProductSerializer,
+    WebshopOrderCreateSerializer,
+    WebshopOrderSerializer,
 )
 from .throttles import GuestBookingThrottle
 
@@ -67,19 +73,131 @@ class HealthcheckView(APIView):
         )
 
 
-class ProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ["id", "name", "slug", "description", "price", "is_active"]
-
-
 class ProductListView(APIView):
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
-        products = Product.objects.filter(is_active=True).order_by("name")
+        products = Product.objects.filter(is_active=True)
+        group_slug = request.query_params.get("group")
+        if group_slug:
+            products = products.filter(group__slug=group_slug, group__is_active=True)
+        products = products.order_by("name")
         return Response(ProductSerializer(products, many=True).data)
+
+
+class ProductGroupListView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        groups = (
+            ProductGroup.objects.filter(is_active=True)
+            .annotate(product_count=Count("products", filter=Q(products__is_active=True), distinct=True))
+            .order_by("name")
+        )
+        return Response(ProductGroupSerializer(groups, many=True).data)
+
+
+class ProductDetailView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, slug):
+        product = get_object_or_404(Product, slug=slug, is_active=True)
+        return Response(ProductSerializer(product).data)
+
+
+class WebshopOrderCreateView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = WebshopOrderCreateSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        order = serializer.save()
+
+        language = get_language() or request.headers.get("Accept-Language", "nl")
+        send_webshop_order_confirmation_email(order, language=language)
+
+        return Response(
+            {
+                "message": tr(
+                    "Bestelling ontvangen. We nemen snel contact op.",
+                    "Bestellung erhalten. Wir melden uns zeitnah.",
+                ),
+                "order": WebshopOrderSerializer(order).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminWebshopProductManageView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
+
+    def _ensure_admin(self, request):
+        if get_user_role(request.user) != RoleChoices.ADMIN:
+            raise PermissionDenied(
+                tr(
+                    "Alleen admins hebben toegang tot webshop beheer.",
+                    "Nur Admins haben Zugriff auf die Webshop-Verwaltung.",
+                )
+            )
+
+    def get(self, request):
+        self._ensure_admin(request)
+        products = Product.objects.select_related("group").order_by("name")
+        return Response(ProductSerializer(products, many=True).data)
+
+    def post(self, request):
+        self._ensure_admin(request)
+        serializer = AdminWebshopProductSerializer(
+            data=request.data,
+            context={
+                "request": request,
+                "media_url": "/media",
+            },
+        )
+        serializer.is_valid(raise_exception=True)
+        product = serializer.save()
+        return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
+
+
+class AdminWebshopProductDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
+
+    def _ensure_admin(self, request):
+        if get_user_role(request.user) != RoleChoices.ADMIN:
+            raise PermissionDenied(
+                tr(
+                    "Alleen admins hebben toegang tot webshop beheer.",
+                    "Nur Admins haben Zugriff auf die Webshop-Verwaltung.",
+                )
+            )
+
+    def patch(self, request, pk):
+        self._ensure_admin(request)
+        product = get_object_or_404(Product, pk=pk)
+        serializer = AdminWebshopProductSerializer(
+            product,
+            data=request.data,
+            partial=True,
+            context={
+                "request": request,
+                "media_url": "/media",
+            },
+        )
+        serializer.is_valid(raise_exception=True)
+        updated_product = serializer.save()
+        return Response(ProductSerializer(updated_product).data)
+
+    def delete(self, request, pk):
+        self._ensure_admin(request)
+        product = get_object_or_404(Product, pk=pk)
+        product.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ActivityListView(APIView):

@@ -90,3 +90,60 @@ def send_booking_confirmation_email(booking, language="nl"):
         email.send(fail_silently=False)
     except Exception:
         logger.exception("Failed to send booking confirmation email", extra={"booking_id": booking.id})
+
+
+def send_webshop_order_confirmation_email(order, language="nl"):
+    if not getattr(settings, "BOOKING_CONFIRMATION_EMAIL_ENABLED", True):
+        return
+
+    recipient = order.guest_email or (order.customer.email if order.customer and order.customer.email else "")
+    if not recipient:
+        logger.info("Skip webshop confirmation email: no recipient", extra={"order_id": order.id})
+        return
+
+    bcc_recipients = getattr(settings, "BOOKING_CONFIRMATION_BCC", [])
+    is_german = str(language or "").lower().startswith("de")
+
+    lines = []
+    for item in order.items.all():
+        lines.append(f"- {item.product_name} x{item.quantity} ({item.unit_price} EUR)")
+    items_text = "\n".join(lines) if lines else "-"
+
+    contact_name = order.guest_name or (order.customer.get_full_name().strip() if order.customer else "") or "Klant"
+
+    if is_german:
+        subject = f"Bestellbestaetigung #{order.id}"
+        body = (
+            f"Hallo {contact_name},\n\n"
+            "deine Bestellung wurde erfolgreich empfangen.\n\n"
+            f"Bestellnummer: {order.id}\n"
+            f"Status: {order.status}\n"
+            f"Gesamt: {order.total_amount} EUR\n\n"
+            "Artikel:\n"
+            f"{items_text}\n\n"
+            "Wir melden uns zeitnah zur Abwicklung und Lieferung/Abholung."
+        )
+    else:
+        subject = f"Bestelbevestiging #{order.id}"
+        body = (
+            f"Beste {contact_name},\n\n"
+            "je webshopbestelling is goed ontvangen.\n\n"
+            f"Bestelnummer: {order.id}\n"
+            f"Status: {order.status}\n"
+            f"Totaal: {order.total_amount} EUR\n\n"
+            "Artikelen:\n"
+            f"{items_text}\n\n"
+            "We nemen binnenkort contact op voor verdere afhandeling en levering/afhalen."
+        )
+
+    try:
+        email = EmailMessage(
+            subject=subject,
+            body=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[recipient],
+            bcc=bcc_recipients,
+        )
+        email.send(fail_silently=False)
+    except Exception:
+        logger.exception("Failed to send webshop confirmation email", extra={"order_id": order.id})

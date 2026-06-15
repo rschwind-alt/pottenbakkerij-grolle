@@ -34,6 +34,10 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const PaymentReturnPage = lazy(() => import("./pages/PaymentReturnPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const WorkshopPage = lazy(() => import("./pages/WorkshopPage"));
+const WebshopProductPage = lazy(() => import("./pages/WebshopProductPage"));
+const WebshopCartPage = lazy(() => import("./pages/WebshopCartPage"));
+const WebshopPage = lazy(() => import("./pages/WebshopPage"));
+const WebshopAdminPage = lazy(() => import("./pages/WebshopAdminPage"));
 
 export default function App() {
   const { isAuthenticated, user, logout, hasAnyRole } = useAuth();
@@ -189,6 +193,11 @@ export default function App() {
                 {t("common.planning")}
               </Button>
             )}
+            {isAuthenticated && hasAnyRole(["admin"]) && (
+              <Button component={RouterLink} to="/webshop-beheer" variant="text">
+                {language === "de" ? "Webshop Verwaltung" : "Webshop beheer"}
+              </Button>
+            )}
             {isAuthenticated && (
               <>
                 <Chip label={`${t("common.role")}: ${roleLabel}`} color="secondary" size="small" />
@@ -223,6 +232,9 @@ export default function App() {
               <MenuItem component={RouterLink} to="/landing/webshop" onClick={handleCloseHamburger}>
                 {t("common.webshop")}
               </MenuItem>
+              <MenuItem component={RouterLink} to="/landing/webshop/cart" onClick={handleCloseHamburger}>
+                {language === "de" ? "Warenkorb ansehen" : "Bekijk winkelmand"}
+              </MenuItem>
               <MenuItem component={RouterLink} to="/contact" onClick={handleCloseHamburger}>
                 {t("common.contact")}
               </MenuItem>
@@ -242,6 +254,11 @@ export default function App() {
               {isAuthenticated && hasAnyRole(["admin", "medewerker"]) && (
                 <MenuItem component={RouterLink} to="/planning" onClick={handleCloseHamburger}>
                   {t("common.planning")}
+                </MenuItem>
+              )}
+              {isAuthenticated && hasAnyRole(["admin"]) && (
+                <MenuItem component={RouterLink} to="/webshop-beheer" onClick={handleCloseHamburger}>
+                  {language === "de" ? "Webshop Verwaltung" : "Webshop beheer"}
                 </MenuItem>
               )}
               {!isAuthenticated && (
@@ -280,6 +297,10 @@ export default function App() {
             <Route path="/landing/claycafe" element={<ClayCafePage />} />
             <Route path="/over-grolle" element={<GrolleStoryPage />} />
             <Route path="/landing/workshop" element={<WorkshopPage />} />
+            <Route path="/landing/webshop" element={<WebshopPage />} />
+            <Route path="/landing/webshop/group/:groupSlug" element={<WebshopPage />} />
+            <Route path="/landing/webshop/product/:slug" element={<WebshopProductPage />} />
+            <Route path="/landing/webshop/cart" element={<WebshopCartPage />} />
             <Route path="/landing/:categoryKey" element={<CategoryLandingPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -298,6 +319,14 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["admin", "medewerker"]}>
                   <PlanningPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/webshop-beheer"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <WebshopAdminPage />
                 </ProtectedRoute>
               }
             />

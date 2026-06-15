@@ -183,7 +183,7 @@ class AdminWebshopProductSerializer(serializers.ModelSerializer):
 
         if image_file:
             extension = os.path.splitext(getattr(image_file, "name", ""))[1].lower() or ".jpg"
-            file_name = f"webshop/uploads/{slug}-{uuid.uuid4().hex[:8]}{extension}"
+            file_name = f"webshop/{slug}-{uuid.uuid4().hex[:8]}{extension}"
             saved_path = default_storage.save(file_name, image_file)
             media_url = (self.context.get("media_url") or "/media/").rstrip("/")
             product.image_url = f"{media_url}/{saved_path}"
@@ -209,7 +209,7 @@ class AdminWebshopProductSerializer(serializers.ModelSerializer):
 
         if image_file:
             extension = os.path.splitext(getattr(image_file, "name", ""))[1].lower() or ".jpg"
-            file_name = f"webshop/uploads/{instance.slug}-{uuid.uuid4().hex[:8]}{extension}"
+            file_name = f"webshop/{instance.slug}-{uuid.uuid4().hex[:8]}{extension}"
             saved_path = default_storage.save(file_name, image_file)
             media_url = (self.context.get("media_url") or "/media/").rstrip("/")
             instance.image_url = f"{media_url}/{saved_path}"

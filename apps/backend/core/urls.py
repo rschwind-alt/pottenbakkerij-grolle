@@ -11,6 +11,8 @@ from .views import (
     HealthcheckView,
     LoginView,
     MyBookingsView,
+    MollieWebhookView,
+    PaymentStatusView,
     PlanningDetailView,
     PlanningListCreateView,
     ProductListView,
@@ -40,4 +42,6 @@ urlpatterns = [
     path("bookings/<int:pk>/", BookingDetailView.as_view(), name="booking-detail"),
     path("bookings/<int:pk>/cancel/", BookingCancelView.as_view(), name="booking-cancel"),
     path("bookings/<int:pk>/reschedule/", BookingRescheduleView.as_view(), name="booking-reschedule"),
+    path("payments/status/<uuid:public_reference>/", PaymentStatusView.as_view(), name="payment-status"),
+    path("payments/mollie/webhook/", MollieWebhookView.as_view(), name="payments-mollie-webhook"),
 ]

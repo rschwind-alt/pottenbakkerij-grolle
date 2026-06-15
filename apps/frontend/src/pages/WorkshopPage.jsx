@@ -198,7 +198,7 @@ export default function WorkshopPage() {
                   </Typography>
                   <Box
                     component="img"
-                    src="/boetseren paardje.png"
+                    src="/voorbeelden werk.jpg"
                     alt={t("workshopPage.galleryTitle")}
                     sx={{
                       width: "100%",

@@ -108,7 +108,7 @@ export default function ClayCafePage() {
 
         <Paper sx={{ borderRadius: 4, overflow: "hidden", backgroundColor: "rgba(255,252,248,0.95)", border: "1px solid rgba(191, 175, 152, 0.22)" }}>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(5, 1fr)" } }}>
-            {categoryCards.map((item) => (
+            {categoryCards.map((item, index) => (
               <Box
                 key={item.title}
                 component={RouterLink}
@@ -123,15 +123,37 @@ export default function ClayCafePage() {
                   color: "inherit",
                   p: { xs: 1.4, md: 1.8 },
                   textAlign: "center",
-                  borderRight: { md: "1px solid rgba(191, 175, 152, 0.16)" },
+                  overflow: "hidden",
+                  borderRight: { md: index < categoryCards.length - 1 ? "1px solid rgba(191, 175, 152, 0.16)" : "none" },
                   backgroundColor: item.active ? "rgba(211, 203, 184, 0.55)" : "transparent",
                 }}
               >
-                <Box component="img" src={item.icon} alt="" aria-hidden="true" sx={{ width: 34, height: 34, opacity: 0.8, mb: 0.7 }} />
-                <Typography variant="overline" sx={{ letterSpacing: "0.14em", display: "block", color: "#44372b" }}>
-                  {item.title}
+                <Box
+                  component="img"
+                  src={item.icon}
+                  alt={item.title}
+                  sx={{
+                    width: 34,
+                    height: 34,
+                    opacity: 0.8,
+                    mb: 0.95,
+                    transform: "translateY(-8px) scale(1.8)",
+                    transformOrigin: "center center",
+                  }}
+                />
+                <Typography
+                  color="text.secondary"
+                  sx={{
+                    fontSize: "0.8rem",
+                    lineHeight: 1,
+                    transform: "scale(2)",
+                    transformOrigin: "center top",
+                    whiteSpace: "nowrap",
+                    mt: 0.2,
+                  }}
+                >
+                  {item.subtitle}
                 </Typography>
-                <Typography sx={{ fontSize: "0.8rem", color: "text.secondary", lineHeight: 1.25 }}>{item.subtitle}</Typography>
               </Box>
             ))}
           </Box>

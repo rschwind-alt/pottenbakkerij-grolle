@@ -1,18 +1,27 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.translation import get_language
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.permissions import SAFE_METHODS
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
 
 from .i18n import tr
 from .emails import send_booking_confirmation_email
-from .models import Booking, Product, RoleChoices, Timeslot
+from .models import Booking, PaymentIntent, Product, RoleChoices, Timeslot
 from .models import Activity, Room
+from .payments import (
+    MolliePaymentError,
+    calculate_booking_amount,
+    create_mollie_checkout,
+    get_mollie_payment,
+)
 from .permissions import IsAdminOrMedewerker, IsBookingOwnerOrStaff, get_user_role
 from .serializers import (
     ActivitySerializer,
@@ -33,6 +42,15 @@ _ACTIVE_STATUSES = [
     Booking.BookingStatus.RESERVED,
     Booking.BookingStatus.PAID,
 ]
+
+
+class PaymentUnavailable(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = tr(
+        "Betalingen zijn tijdelijk niet beschikbaar. Probeer later opnieuw.",
+        "Zahlungen sind derzeit nicht verfuegbar. Bitte spaeter erneut versuchen.",
+    )
+    default_code = "payment_unavailable"
 
 
 class HealthcheckView(APIView):
@@ -233,7 +251,73 @@ def models_capacity_ref():
 # Bookings
 # ---------------------------------------------------------------------------
 
-class BookingListCreateView(generics.ListCreateAPIView):
+class BookingPaymentFlowMixin:
+    @transaction.atomic
+    def _create_payment_booking(self, serializer, customer=None, guest_data=None):
+        timeslot = serializer.validated_data["timeslot"]
+        requested_participants = serializer.validated_data.get("participants", 1)
+
+        locked_timeslot = Timeslot.objects.select_for_update().get(pk=timeslot.pk)
+        active_participants = Booking.objects.filter(
+            timeslot=locked_timeslot,
+            status__in=_ACTIVE_STATUSES,
+        ).aggregate(total=Sum("participants"))["total"] or 0
+
+        if active_participants + requested_participants > locked_timeslot.capacity:
+            raise ValidationError(
+                {
+                    "timeslot": tr(
+                        "Dit tijdslot is volgeboekt.",
+                        "Dieses Zeitfenster ist ausgebucht.",
+                    )
+                }
+            )
+
+        requires_payment = bool(locked_timeslot.activity.requires_payment)
+        booking = serializer.save(
+            customer=customer,
+            timeslot=locked_timeslot,
+            status=Booking.BookingStatus.RESERVED if requires_payment else Booking.BookingStatus.NEW,
+            **(guest_data or {}),
+        )
+
+        if not requires_payment:
+            language = get_language() or "nl"
+            send_booking_confirmation_email(booking, language=language)
+            return booking, None, None
+
+        if booking.timeslot.activity.price <= 0:
+            raise ValidationError(
+                {
+                    "timeslot": tr(
+                        "Er is geen prijs ingesteld voor deze activiteit.",
+                        "Fuer diese Aktivitaet ist kein Preis hinterlegt.",
+                    )
+                }
+            )
+
+        payment_amount = calculate_booking_amount(booking)
+        payment_intent = PaymentIntent.objects.create(
+            booking=booking,
+            provider="mollie",
+            provider_reference=f"pending-{booking.id}",
+            amount=payment_amount,
+            currency="EUR",
+            status=PaymentIntent.PaymentStatus.NEW,
+        )
+
+        try:
+            payment_data = create_mollie_checkout(booking, payment_intent.public_reference)
+        except MolliePaymentError as exc:
+            raise PaymentUnavailable() from exc
+        payment_intent.provider_reference = payment_data["payment_id"]
+        payment_intent.status = PaymentIntent.PaymentStatus.RESERVED
+        payment_intent.save(update_fields=["provider_reference", "status", "amount", "updated_at"])
+
+        return booking, payment_intent, payment_data["checkout_url"]
+
+
+class BookingListCreateView(BookingPaymentFlowMixin, generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = BookingSerializer
 
@@ -243,60 +327,156 @@ class BookingListCreateView(generics.ListCreateAPIView):
             return Booking.objects.select_related("timeslot", "customer").all()
         return Booking.objects.select_related("timeslot", "customer").filter(customer=self.request.user)
 
-    @transaction.atomic
-    def perform_create(self, serializer):
-        timeslot = serializer.validated_data["timeslot"]
-        requested_participants = serializer.validated_data.get("participants", 1)
-        # Row-level lock on the timeslot row to prevent concurrent overbooking
-        locked_timeslot = (
-            Timeslot.objects.select_for_update().get(pk=timeslot.pk)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking, payment_intent, checkout_url = self._create_payment_booking(
+            serializer,
+            customer=request.user,
         )
-        active_participants = Booking.objects.filter(
-            timeslot=locked_timeslot,
-            status__in=_ACTIVE_STATUSES,
-        ).aggregate(total=Sum("participants"))["total"] or 0
-        if active_participants + requested_participants > locked_timeslot.capacity:
-            raise ValidationError(
-                {
-                    "timeslot": tr(
-                        "Dit tijdslot is volgeboekt.",
-                        "Dieses Zeitfenster ist ausgebucht.",
-                    )
-                }
-            )
-        booking = serializer.save(customer=self.request.user, timeslot=locked_timeslot)
-        language = getattr(self.request, "LANGUAGE_CODE", "nl")
-        transaction.on_commit(lambda: send_booking_confirmation_email(booking, language=language))
+
+        return Response(
+            {
+                "booking": BookingSerializer(booking).data,
+                "payment": {
+                    "required": bool(payment_intent),
+                    **(
+                        {
+                            "public_reference": str(payment_intent.public_reference),
+                            "payment_id": payment_intent.provider_reference,
+                            "checkout_url": checkout_url,
+                            "amount": f"{payment_intent.amount:.2f}",
+                            "currency": payment_intent.currency,
+                            "status": payment_intent.status,
+                        }
+                        if payment_intent
+                        else {}
+                    ),
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
-class GuestBookingCreateView(generics.CreateAPIView):
+class GuestBookingCreateView(BookingPaymentFlowMixin, generics.CreateAPIView):
     authentication_classes = []
     permission_classes = []
     throttle_classes = [GuestBookingThrottle]
     serializer_class = GuestBookingCreateSerializer
 
-    @transaction.atomic
-    def perform_create(self, serializer):
-        timeslot = serializer.validated_data["timeslot"]
-        requested_participants = serializer.validated_data.get("participants", 1)
-        locked_timeslot = Timeslot.objects.select_for_update().get(pk=timeslot.pk)
-        active_participants = Booking.objects.filter(
-            timeslot=locked_timeslot,
-            status__in=_ACTIVE_STATUSES,
-        ).aggregate(total=Sum("participants"))["total"] or 0
-        if active_participants + requested_participants > locked_timeslot.capacity:
-            raise ValidationError(
-                {
-                    "timeslot": tr(
-                        "Dit tijdslot is volgeboekt.",
-                        "Dieses Zeitfenster ist ausgebucht.",
-                    )
-                }
-            )
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking, payment_intent, checkout_url = self._create_payment_booking(
+            serializer,
+            customer=None,
+            guest_data={
+                "guest_name": serializer.validated_data.get("guest_name", ""),
+                "guest_email": serializer.validated_data.get("guest_email", ""),
+                "guest_phone": serializer.validated_data.get("guest_phone", ""),
+            },
+        )
 
-        booking = serializer.save(timeslot=locked_timeslot, customer=None, status=Booking.BookingStatus.NEW)
-        language = getattr(self.request, "LANGUAGE_CODE", "nl")
-        transaction.on_commit(lambda: send_booking_confirmation_email(booking, language=language))
+        return Response(
+            {
+                "booking": BookingSerializer(booking).data,
+                "payment": {
+                    "required": bool(payment_intent),
+                    **(
+                        {
+                            "public_reference": str(payment_intent.public_reference),
+                            "payment_id": payment_intent.provider_reference,
+                            "checkout_url": checkout_url,
+                            "amount": f"{payment_intent.amount:.2f}",
+                            "currency": payment_intent.currency,
+                            "status": payment_intent.status,
+                        }
+                        if payment_intent
+                        else {}
+                    ),
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class MollieWebhookView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    @transaction.atomic
+    def post(self, request):
+        payment_id = request.data.get("id") or request.POST.get("id")
+        if not payment_id:
+            return Response({"detail": "Missing payment id."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            payment = (
+                PaymentIntent.objects.select_for_update()
+                .select_related("booking__timeslot__activity", "booking__timeslot__room")
+                .get(provider_reference=payment_id)
+            )
+        except PaymentIntent.DoesNotExist:
+            return Response({"detail": "Unknown payment."}, status=status.HTTP_200_OK)
+
+        booking = payment.booking
+        previous_booking_status = booking.status
+
+        try:
+            mollie_payment = get_mollie_payment(payment.provider_reference)
+        except MolliePaymentError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        mollie_status = mollie_payment.get("status")
+
+        if mollie_status == "paid":
+            payment.status = PaymentIntent.PaymentStatus.PAID
+            booking.status = Booking.BookingStatus.PAID
+            payment.save(update_fields=["status", "updated_at"])
+            booking.save(update_fields=["status", "updated_at"])
+            if previous_booking_status != Booking.BookingStatus.PAID:
+                language = get_language() or "nl"
+                send_booking_confirmation_email(booking, language=language)
+        elif mollie_status in {"canceled", "expired"}:
+            payment.status = PaymentIntent.PaymentStatus.CANCELED
+            payment.save(update_fields=["status", "updated_at"])
+            if booking.status != Booking.BookingStatus.CANCELED:
+                booking.status = Booking.BookingStatus.CANCELED
+                booking.save(update_fields=["status", "updated_at"])
+        elif mollie_status == "failed":
+            payment.status = PaymentIntent.PaymentStatus.FAILED
+            payment.save(update_fields=["status", "updated_at"])
+
+        return Response({"ok": True})
+
+
+class PaymentStatusView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, public_reference):
+        payment = PaymentIntent.objects.select_related("booking__timeslot__activity", "booking__timeslot__room", "booking__customer").get(
+            public_reference=public_reference
+        )
+        booking = payment.booking
+        return Response(
+            {
+                "public_reference": str(payment.public_reference),
+                "payment_id": payment.provider_reference,
+                "payment_status": payment.status,
+                "booking_status": payment.booking.status,
+                "amount": f"{payment.amount:.2f}",
+                "currency": payment.currency,
+                "booking": BookingSerializer(booking).data,
+                "booking_id": booking.id,
+                "activity_name": booking.timeslot.activity.name,
+                "slot_title": booking.timeslot.title,
+                "starts_at": booking.timeslot.starts_at.isoformat(),
+                "ends_at": booking.timeslot.ends_at.isoformat(),
+                "participants": booking.participants,
+                "contact_name": booking.guest_name or getattr(booking.customer, "get_full_name", lambda: "")() or getattr(booking.customer, "username", "") or "",
+            }
+        )
 
 
 class BookingDetailView(generics.RetrieveAPIView):

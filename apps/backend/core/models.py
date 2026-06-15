@@ -1,3 +1,7 @@
+from decimal import Decimal
+
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -50,6 +54,8 @@ class Activity(AuditModel):
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=140, unique=True)
     description = models.TextField(blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("25.00"))
+    requires_payment = models.BooleanField(default=True)
     default_duration_minutes = models.PositiveIntegerField(default=90)
     default_room = models.ForeignKey(
         "Room",
@@ -182,6 +188,7 @@ class PaymentIntent(AuditModel):
         FAILED = "mislukt", "Mislukt"
 
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name="payment_intent")
+    public_reference = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     provider = models.CharField(max_length=40, default="mock")
     provider_reference = models.CharField(max_length=120, unique=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)

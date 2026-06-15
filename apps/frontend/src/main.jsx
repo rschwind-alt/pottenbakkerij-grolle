@@ -31,8 +31,15 @@ const theme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
+        ":root": {
+          backgroundColor: "#f3eee8",
+        },
+        html: {
+          backgroundColor: "#f3eee8",
+        },
         body: {
           fontFamily: '"Cormorant Garamond", "Times New Roman", serif',
+          backgroundColor: "#f3eee8",
         },
       },
     },
@@ -91,24 +98,33 @@ const theme = createTheme({
           },
         },
         contained: {
-          color: "#232a31",
-          border: "1px solid rgba(170, 165, 156, 0.95)",
+          color: "#fffaf7",
+          border: "1px solid rgba(140, 82, 67, 0.95)",
           backgroundColor: "transparent",
-          backgroundImage: "linear-gradient(180deg, rgba(249, 247, 243, 0.96) 0%, rgba(240, 236, 230, 0.97) 100%)",
+          backgroundImage: "linear-gradient(180deg, rgba(207, 132, 117, 0.98) 0%, rgba(195, 119, 103, 0.98) 100%)",
           "&:hover": {
-            border: "1px solid rgba(150, 145, 137, 0.98)",
+            border: "1px solid rgba(127, 69, 56, 0.98)",
             backgroundColor: "transparent",
-            backgroundImage: "linear-gradient(180deg, rgba(252, 250, 246, 0.98) 0%, rgba(238, 232, 224, 0.98) 100%)",
+            backgroundImage: "linear-gradient(180deg, rgba(187, 107, 91, 0.98) 0%, rgba(175, 94, 79, 0.98) 100%)",
           },
         },
         outlined: {
-          color: "#232a31",
-          backgroundImage: "linear-gradient(180deg, rgba(249, 247, 243, 0.96) 0%, rgba(240, 236, 230, 0.97) 100%)",
+          color: "#f6fbf7",
+          border: "1px solid rgba(106, 132, 112, 0.95)",
+          backgroundImage: "linear-gradient(180deg, rgba(120, 149, 130, 0.98) 0%, rgba(108, 136, 118, 0.98) 100%)",
+          "&:hover": {
+            border: "1px solid rgba(90, 113, 98, 0.98)",
+            backgroundImage: "linear-gradient(180deg, rgba(98, 125, 107, 0.98) 0%, rgba(89, 116, 98, 0.98) 100%)",
+          },
         },
         text: {
-          color: "#232a31",
-          border: "1px solid rgba(170, 165, 156, 0.95)",
-          backgroundImage: "linear-gradient(180deg, rgba(248, 245, 240, 0.9) 0%, rgba(248, 245, 240, 0.9) 100%)",
+          color: "#6f4a3d",
+          border: "1px solid rgba(193, 154, 138, 0.95)",
+          backgroundImage: "linear-gradient(180deg, rgba(251, 243, 239, 0.96) 0%, rgba(245, 233, 227, 0.96) 100%)",
+          "&:hover": {
+            border: "1px solid rgba(175, 132, 114, 0.95)",
+            backgroundImage: "linear-gradient(180deg, rgba(248, 235, 229, 0.96) 0%, rgba(241, 224, 216, 0.96) 100%)",
+          },
         },
       },
     },

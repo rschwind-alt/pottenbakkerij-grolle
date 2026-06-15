@@ -35,6 +35,14 @@ function formatTimeRange(startValue, endValue, locale) {
   return `${start} - ${end}`;
 }
 
+function formatPricePerPerson(value, locale) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return "";
+  }
+  return `${new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(amount)} p.p.`;
+}
+
 export default function HomePage() {
   const { t, locale } = useLanguage();
   const featureCards = t("home.featureCards");
@@ -42,6 +50,7 @@ export default function HomePage() {
   const visitLines = t("home.visitLines");
   const hoursLines = t("home.hoursLines");
   const quickLinks = t("home.quickLinks");
+  const quickLinkTargets = ["/bookings", "/landing/workshop", "/landing/webshop", "/contact", "/contact"];
   const clayList = t("clayCafePage.clayList");
   const workshopList = t("clayCafePage.workshopList");
   const valeryHighlights = t("home.valeryHighlights");
@@ -214,15 +223,36 @@ export default function HomePage() {
                   color: "inherit",
                   p: { xs: 1.4, md: 1.8 },
                   textAlign: "center",
+                  overflow: "hidden",
                   borderRight: { md: index < featureCards.length - 1 ? "1px solid rgba(191, 175, 152, 0.16)" : "none" },
                   borderBottom: { xs: index < featureCards.length - 2 ? "1px solid rgba(191, 175, 152, 0.16)" : "none", md: "none" },
                 }}
               >
-                <Box component="img" src={item.icon} alt={item.title} sx={{ width: 34, height: 34, opacity: 0.8, mb: 0.7 }} />
-                <Typography variant="overline" sx={{ letterSpacing: "0.14em", display: "block", color: "#44372b" }}>
-                  {item.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8rem", lineHeight: 1.25 }}>
+                <Box
+                  component="img"
+                  src={item.icon}
+                  alt={item.title}
+                  sx={{
+                    width: 34,
+                    height: 34,
+                    opacity: 0.8,
+                    mb: 0.95,
+                    transform: "translateY(-8px) scale(1.8)",
+                    transformOrigin: "center center",
+                  }}
+                />
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    fontSize: "0.8rem",
+                    lineHeight: 1,
+                    transform: "scale(2)",
+                    transformOrigin: "center top",
+                    whiteSpace: "nowrap",
+                    mt: 0.2,
+                  }}
+                >
                   {item.subtitle}
                 </Typography>
               </Box>
@@ -386,7 +416,7 @@ export default function HomePage() {
               <Typography color="text.secondary" sx={{ lineHeight: 1.8 }}>
                 {t("home.workshopsBody")}
               </Typography>
-              <Button component={RouterLink} to="/landing/workshop" variant="text" sx={{ alignSelf: "flex-start" }}>
+              <Button component={RouterLink} to="/landing/workshop" variant="contained" sx={{ alignSelf: "flex-start" }}>
                 {t("home.workshopsCta")}
               </Button>
             </Stack>
@@ -466,6 +496,7 @@ export default function HomePage() {
                 <Grid container spacing={1.5}>
                   {agendaState.items.map((item) => {
                     const date = formatAgendaDate(item.starts_at, locale);
+                    const pricePerPerson = formatPricePerPerson(item.activity_price, locale);
                     return (
                       <Grid item xs={12} md={4} key={item.id}>
                         <Paper variant="outlined" sx={{ p: 2.2, borderRadius: 3, height: "100%", backgroundColor: "rgba(255,255,255,0.76)" }}>
@@ -485,6 +516,11 @@ export default function HomePage() {
                             <Typography variant="caption" sx={{ alignSelf: "flex-start", px: 1, py: 0.5, borderRadius: 999, backgroundColor: item.available_spots > 0 ? "rgba(219,236,219,0.92)" : "rgba(240,225,225,0.92)" }}>
                               {item.available_spots > 0 ? t("home.agendaSpots", { count: item.available_spots }) : t("home.agendaSoldOut")}
                             </Typography>
+                            {pricePerPerson && (
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, fontSize: "1.5rem", lineHeight: 1.1 }}>
+                                {pricePerPerson}
+                              </Typography>
+                            )}
                             {item.available_spots > 0 && (
                               <Button
                                 component={RouterLink}
@@ -497,12 +533,12 @@ export default function HomePage() {
                                   alignSelf: "flex-start",
                                   mt: 0.6,
                                   borderRadius: 999,
-                                  backgroundColor: "#c58b93",
-                                  color: "#111",
+                                  backgroundColor: "#cf8475",
+                                  color: "#fffaf7",
                                   pl: 5.6,
                                   pr: 2,
                                   py: 0.65,
-                                  "&:hover": { backgroundColor: "#c26576" },
+                                  "&:hover": { backgroundColor: "#bb6b5b" },
                                 }}
                               >
                                 {t("home.agendaBookNow")}
@@ -537,7 +573,7 @@ export default function HomePage() {
               <Typography color="text.secondary" sx={{ lineHeight: 1.75 }}>
                 {t("home.aboutBody2")}
               </Typography>
-              <Button component={RouterLink} to="/over-grolle" variant="text" sx={{ alignSelf: "flex-start" }}>
+              <Button component={RouterLink} to="/over-grolle" variant="contained" sx={{ alignSelf: "flex-start" }}>
                 {t("home.aboutCta")}
               </Button>
             </Stack>
@@ -572,7 +608,7 @@ export default function HomePage() {
                 {visitLines.map((line) => (
                   <Typography key={line} color="text.secondary">{line}</Typography>
                 ))}
-                <Button component={RouterLink} to="/contact" variant="text" sx={{ alignSelf: "flex-start" }}>{t("home.visitCta")}</Button>
+                <Button component={RouterLink} to="/contact" variant="contained" sx={{ alignSelf: "flex-start" }}>{t("home.visitCta")}</Button>
               </Stack>
             </Grid>
             <Grid item xs={12} md={2.5}>
@@ -586,8 +622,24 @@ export default function HomePage() {
             <Grid item xs={12} md={1.8}>
               <Stack spacing={1}>
                 <Typography variant="overline" color="secondary.main">{t("home.quickLinksTitle")}</Typography>
-                {quickLinks.map((item) => (
-                  <Typography key={item} color="text.secondary">{item}</Typography>
+                {quickLinks.map((item, index) => (
+                  <Typography
+                    key={item}
+                    component={RouterLink}
+                    to={quickLinkTargets[index] || "/"}
+                    sx={{
+                      alignSelf: "flex-start",
+                      textDecoration: "none",
+                      color: "text.secondary",
+                      fontSize: "0.98rem",
+                      lineHeight: 1.45,
+                      "&:hover": {
+                        color: "#6f4a3d",
+                      },
+                    }}
+                  >
+                    {item}
+                  </Typography>
                 ))}
               </Stack>
             </Grid>

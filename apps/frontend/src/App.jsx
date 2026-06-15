@@ -31,6 +31,7 @@ const HomePage = lazy(() => import("./pages/HomePage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const PlanningPage = lazy(() => import("./pages/PlanningPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const PaymentReturnPage = lazy(() => import("./pages/PaymentReturnPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const WorkshopPage = lazy(() => import("./pages/WorkshopPage"));
 
@@ -42,7 +43,7 @@ export default function App() {
   const isHomeRoute = location.pathname === "/";
   const isLandingRoute = location.pathname.startsWith("/landing/");
   const isContactRoute = location.pathname === "/contact";
-  const isBookingsRoute = location.pathname === "/bookings";
+  const isBookingsRoute = location.pathname.startsWith("/bookings");
   const isGrolleRoute = location.pathname === "/over-grolle";
   const isWideLayoutRoute = isHomeRoute || isLandingRoute || isContactRoute || isBookingsRoute || isGrolleRoute;
   const isHamburgerOpen = Boolean(menuAnchorEl);
@@ -283,6 +284,7 @@ export default function App() {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/bookings/payment-return" element={<PaymentReturnPage />} />
             <Route
               path="/account"
               element={

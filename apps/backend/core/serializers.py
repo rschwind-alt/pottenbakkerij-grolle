@@ -78,6 +78,8 @@ class ActivitySerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "description",
+            "price",
+            "requires_payment",
             "default_duration_minutes",
             "default_room",
             "is_active",
@@ -106,6 +108,7 @@ class LoginTokenSerializer(TokenObtainPairSerializer):
 
 class TimeslotAvailabilitySerializer(serializers.ModelSerializer):
     activity_name = serializers.CharField(source="activity.name", read_only=True)
+    activity_price = serializers.DecimalField(source="activity.price", max_digits=10, decimal_places=2, read_only=True)
     room_name = serializers.CharField(source="room.name", read_only=True)
     available_spots = serializers.SerializerMethodField()
     booked_count = serializers.SerializerMethodField()
@@ -117,6 +120,7 @@ class TimeslotAvailabilitySerializer(serializers.ModelSerializer):
             "title",
             "activity",
             "activity_name",
+            "activity_price",
             "room",
             "room_name",
             "starts_at",
@@ -419,3 +423,10 @@ class GuestBookingCreateSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+
+class PaymentStatusSerializer(serializers.Serializer):
+    public_reference = serializers.UUIDField()
+    payment_status = serializers.CharField()
+    booking_status = serializers.CharField()
+    booking = BookingSerializer(read_only=True)

@@ -130,6 +130,9 @@ BOOKING_CONFIRMATION_BCC = [
     for email in os.getenv("BOOKING_CONFIRMATION_BCC", "").split(",")
     if email.strip()
 ]
+MOLLIE_API_KEY = os.getenv("MOLLIE_API_KEY", "")
+FRONTEND_PUBLIC_URL = os.getenv("FRONTEND_PUBLIC_URL", "http://localhost:5173")
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:8000")
 
 LOGGING = {
     "version": 1,

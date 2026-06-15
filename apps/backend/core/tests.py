@@ -10,6 +10,7 @@ Covers:
 """
 
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -21,7 +22,8 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Activity, Booking, Profile, Room, RoleChoices, Timeslot
+from .models import Activity, Booking, PaymentIntent, Profile, Room, RoleChoices, Timeslot
+from .payments import MolliePaymentError
 
 User = get_user_model()
 
@@ -82,7 +84,7 @@ class BaseTestCase(APITestCase):
             name="Handvormen", slug="handvormen", default_duration_minutes=120
         )
         self.activity2 = Activity.objects.create(
-            name="Draaischijf", slug="draaischijf", default_duration_minutes=90
+            name="Draaischijf", slug="draaischijf", default_duration_minutes=90, requires_payment=False
         )
         self.room = Room.objects.create(name="Atelier A", slug="atelier-a", capacity=10)
 
@@ -93,6 +95,22 @@ class BaseTestCase(APITestCase):
 
         self.slot = _make_timeslot(self.activity, self.room, offset_days=1, capacity=2)
         self.slot2 = _make_timeslot(self.activity2, self.room, offset_days=2, capacity=1)
+
+        self.create_checkout_patch = patch("core.views.create_mollie_checkout")
+        self.mock_create_checkout = self.create_checkout_patch.start()
+        self.mock_checkout_counter = 0
+
+        def _mock_checkout(*args, **kwargs):
+            self.mock_checkout_counter += 1
+            return {
+                "payment_id": f"tr_test_payment_{self.mock_checkout_counter}",
+                "checkout_url": "https://example.com/checkout",
+                "status": "open",
+                "amount": 25,
+            }
+
+        self.mock_create_checkout.side_effect = _mock_checkout
+        self.addCleanup(self.create_checkout_patch.stop)
 
 
 # ---------------------------------------------------------------------------
@@ -169,11 +187,41 @@ class TimeslotAvailabilityTests(BaseTestCase):
 # ---------------------------------------------------------------------------
 
 class BookingCreateTests(BaseTestCase):
-    def test_klant_can_book(self):
+    @patch("core.views.create_mollie_checkout")
+    def test_klant_can_book(self, mock_create_checkout):
+        mock_create_checkout.return_value = {
+            "payment_id": "tr_test_payment",
+            "checkout_url": "https://example.com/checkout",
+            "status": "open",
+            "amount": 25,
+        }
+
         client = _jwt(self.klant1)
         res = client.post(reverse("booking-list-create"), {"timeslot": self.slot.pk})
         self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
-        self.assertEqual(res.data["status"], Booking.BookingStatus.NEW)
+        self.assertEqual(res.data["booking"]["status"], Booking.BookingStatus.RESERVED)
+
+    @patch("core.views.create_mollie_checkout")
+    def test_guest_booking_sends_confirmation_email(self, mock_create_checkout):
+        mock_create_checkout.return_value = {
+            "payment_id": "tr_test_guest_payment",
+            "checkout_url": "https://example.com/checkout",
+            "status": "open",
+            "amount": 25,
+        }
+
+        response = self.client.post(
+            reverse("booking-guest-create"),
+            {
+                "timeslot": self.slot.pk,
+                "guest_name": "Gast Voorbeeld",
+                "guest_email": "gast@example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["booking"]["status"], Booking.BookingStatus.RESERVED)
 
     def test_cannot_double_book_same_slot(self):
         client = _jwt(self.klant1)
@@ -199,30 +247,33 @@ class BookingCreateTests(BaseTestCase):
 
     def test_capacity_uses_participant_sum(self):
         # slot capacity=2, first booking takes both places
-        res = _jwt(self.klant1).post(
+        with patch("core.views.create_mollie_checkout") as mock_create_checkout:
+            mock_create_checkout.return_value = {
+                "payment_id": "tr_capacity_payment",
+                "checkout_url": "https://example.com/checkout",
+                "status": "open",
+                "amount": 50,
+            }
+            res = _jwt(self.klant1).post(
             reverse("booking-list-create"),
             {"timeslot": self.slot.pk, "participants": 2},
             format="json",
         )
         self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
 
-        second = _jwt(self.klant2).post(
-            reverse("booking-list-create"),
-            {"timeslot": self.slot.pk, "participants": 1},
-            format="json",
-        )
+        with patch("core.views.create_mollie_checkout") as mock_create_checkout:
+            mock_create_checkout.return_value = {
+                "payment_id": "tr_capacity_payment_2",
+                "checkout_url": "https://example.com/checkout",
+                "status": "open",
+                "amount": 25,
+            }
+            second = _jwt(self.klant2).post(
+                reverse("booking-list-create"),
+                {"timeslot": self.slot.pk, "participants": 1},
+                format="json",
+            )
         self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
-
-    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
-    def test_authenticated_booking_sends_confirmation_email(self):
-        self.klant1.email = "klant1@example.com"
-        self.klant1.save(update_fields=["email"])
-
-        res = _jwt(self.klant1).post(reverse("booking-list-create"), {"timeslot": self.slot.pk})
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("klant1@example.com", mail.outbox[0].to)
-        self.assertIn(str(res.data["id"]), mail.outbox[0].subject)
 
 
 # ---------------------------------------------------------------------------
@@ -409,7 +460,7 @@ class GuestBookingTests(BaseTestCase):
         )
 
         self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
-        booking = Booking.objects.get(pk=res.data["id"])
+        booking = Booking.objects.get(pk=res.data["booking"]["id"])
         self.assertIsNone(booking.customer_id)
         self.assertEqual(booking.guest_email, "gast@example.com")
 
@@ -501,19 +552,99 @@ class GuestBookingTests(BaseTestCase):
         )
         self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
 
+
+class PaymentFlowTests(BaseTestCase):
+    def test_booking_returns_service_unavailable_when_mollie_is_missing(self):
+        with patch("core.views.create_mollie_checkout", side_effect=MolliePaymentError("Mollie API key ontbreekt. Stel MOLLIE_API_KEY in.")):
+            response = self.client.post(
+                reverse("booking-guest-create"),
+                {
+                    "timeslot": self.slot.pk,
+                    "guest_name": "Gast Voorbeeld",
+                    "guest_email": "gast@example.com",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE, response.data)
+        self.assertIn("Betalingen zijn tijdelijk niet beschikbaar", str(response.data["detail"]))
+
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
-    def test_guest_booking_sends_confirmation_email(self):
-        res = self.client.post(
+    def test_guest_booking_without_payment_sends_email(self):
+        response = self.client.post(
             reverse("booking-guest-create"),
             {
-                "timeslot": self.slot.pk,
-                "guest_name": "Gast Voorbeeld",
-                "guest_email": "gast@example.com",
+                "timeslot": self.slot2.pk,
+                "guest_name": "Gast Zonder Betaling",
+                "guest_email": "gast-zonder-betaling@example.com",
+                "participants": 1,
             },
             format="json",
         )
 
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertFalse(response.data["payment"]["required"])
+        self.assertNotIn("payment_id", response.data["payment"])
+        booking = Booking.objects.get(pk=response.data["booking"]["id"])
+        self.assertEqual(booking.status, Booking.BookingStatus.NEW)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("gast@example.com", mail.outbox[0].to)
-        self.assertIn(str(res.data["id"]), mail.outbox[0].subject)
+        self.assertIn("gast-zonder-betaling@example.com", mail.outbox[0].to)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_webhook_marks_booking_paid_and_sends_email(self):
+        self.klant1.email = "klant1@example.com"
+        self.klant1.save(update_fields=["email"])
+
+        with patch("core.views.get_mollie_payment", return_value={"status": "paid"}):
+            create_response = _jwt(self.klant1).post(reverse("booking-list-create"), {"timeslot": self.slot.pk})
+            self.assertEqual(create_response.status_code, status.HTTP_201_CREATED, create_response.data)
+
+            payment_id = create_response.data["payment"]["payment_id"]
+            public_reference = create_response.data["payment"]["public_reference"]
+
+            webhook_response = self.client.post(reverse("payments-mollie-webhook"), {"id": payment_id}, format="json")
+            self.assertEqual(webhook_response.status_code, status.HTTP_200_OK, webhook_response.data)
+
+            booking = Booking.objects.get(pk=create_response.data["booking"]["id"])
+            payment = booking.payment_intent
+            self.assertEqual(booking.status, Booking.BookingStatus.PAID)
+            self.assertEqual(payment.status, PaymentIntent.PaymentStatus.PAID)
+
+            status_response = self.client.get(reverse("payment-status", kwargs={"public_reference": public_reference}))
+            self.assertEqual(status_response.status_code, status.HTTP_200_OK, status_response.data)
+            self.assertEqual(status_response.data["payment_status"], PaymentIntent.PaymentStatus.PAID)
+            self.assertEqual(status_response.data["booking_status"], Booking.BookingStatus.PAID)
+            self.assertEqual(len(mail.outbox), 1)
+            self.assertIn("klant1@example.com", mail.outbox[0].to)
+
+    def test_public_payment_status_shows_pending(self):
+        create_response = _jwt(self.klant1).post(reverse("booking-list-create"), {"timeslot": self.slot.pk})
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED, create_response.data)
+
+        public_reference = create_response.data["payment"]["public_reference"]
+        status_response = self.client.get(reverse("payment-status", kwargs={"public_reference": public_reference}))
+        self.assertEqual(status_response.status_code, status.HTTP_200_OK, status_response.data)
+        self.assertEqual(status_response.data["payment_status"], PaymentIntent.PaymentStatus.RESERVED)
+        self.assertEqual(status_response.data["booking_status"], Booking.BookingStatus.RESERVED)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_guest_booking_sends_confirmation_email(self):
+        with patch("core.views.get_mollie_payment", return_value={"status": "paid"}):
+            res = self.client.post(
+                reverse("booking-guest-create"),
+                {
+                    "timeslot": self.slot.pk,
+                    "guest_name": "Gast Voorbeeld",
+                    "guest_email": "gast@example.com",
+                },
+                format="json",
+            )
+
+            self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+            self.assertEqual(len(mail.outbox), 0)
+
+            payment_id = res.data["payment"]["payment_id"]
+            webhook_response = self.client.post(reverse("payments-mollie-webhook"), {"id": payment_id}, format="json")
+            self.assertEqual(webhook_response.status_code, status.HTTP_200_OK, webhook_response.data)
+            self.assertEqual(len(mail.outbox), 1)
+            self.assertIn("gast@example.com", mail.outbox[0].to)

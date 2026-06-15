@@ -19,8 +19,8 @@ class ProfileAdmin(admin.ModelAdmin):
 
 @admin.register(Activity)
 class ActivityAdmin(admin.ModelAdmin):
-    list_display = ("name", "default_room", "default_duration_minutes", "is_active", "updated_at")
-    list_filter = ("is_active",)
+    list_display = ("name", "price", "requires_payment", "default_room", "default_duration_minutes", "is_active", "updated_at")
+    list_filter = ("is_active", "requires_payment")
     search_fields = ("name", "slug")
     autocomplete_fields = ("default_room",)
 
@@ -48,6 +48,6 @@ class BookingAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentIntent)
 class PaymentIntentAdmin(admin.ModelAdmin):
-    list_display = ("provider_reference", "booking", "amount", "currency", "status", "updated_at")
+    list_display = ("public_reference", "provider_reference", "booking", "amount", "currency", "status", "updated_at")
     list_filter = ("status", "currency", "provider")
     search_fields = ("provider_reference", "booking__customer__username")

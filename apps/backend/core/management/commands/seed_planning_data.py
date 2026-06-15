@@ -26,11 +26,13 @@ class Command(BaseCommand):
             name="Handvormen Workshop",
             description="Introductie in handvormen met klei.",
             default_duration_minutes=120,
+            price=Decimal("45.00"),
         )
         draaischijf = self._upsert_activity(
             name="Draaischijf Sessie",
             description="Begeleide sessie op de draaischijf.",
             default_duration_minutes=90,
+            price=Decimal("55.00"),
         )
 
         atelier_a = self._upsert_room(
@@ -113,7 +115,7 @@ class Command(BaseCommand):
             profile.save(update_fields=["role"])
         return user
 
-    def _upsert_activity(self, name, description, default_duration_minutes):
+    def _upsert_activity(self, name, description, default_duration_minutes, price):
         slug = slugify(name)
         activity, _ = Activity.objects.update_or_create(
             slug=slug,
@@ -121,6 +123,7 @@ class Command(BaseCommand):
                 "name": name,
                 "description": description,
                 "default_duration_minutes": default_duration_minutes,
+                "price": price,
                 "is_active": True,
             },
         )

@@ -17,6 +17,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { DatePicker, LocalizationProvider, PickersDay } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { de, nl } from "date-fns/locale";
 import { useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
@@ -80,6 +83,14 @@ function formatTimeRange(startValue, endValue, locale) {
   return `${start} - ${end}`;
 }
 
+function formatPricePerPerson(value, locale) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return "";
+  }
+  return `${new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(amount)} p.p.`;
+}
+
 function todayValue() {
   return toDateKey(new Date());
 }
@@ -89,6 +100,23 @@ function toDateKey(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function parseDateKey(value) {
+  if (!value) {
+    return null;
+  }
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+  return new Date(year, month - 1, day);
+}
+
+function addMonths(date, amount) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + amount);
+  return next;
 }
 
 function maxDateKey(left, right) {
@@ -189,8 +217,9 @@ export default function BookingsPage() {
   const { authFetch, user, isAuthenticated } = useAuth();
   const { t, locale, language } = useLanguage();
   const initialActivityId = searchParams.get("activity") || "";
+  const initialDateParam = searchParams.get("date") || "";
   const lockedActivityId = initialActivityId;
-  const initialDate = searchParams.get("date") || todayValue();
+  const initialDate = initialActivityId ? (initialDateParam || todayValue()) : initialDateParam;
   const initialTimeslotId = searchParams.get("timeslot") || "";
   const isDirectActivityFlow = Boolean(initialActivityId);
   const initialWeekOffset = isDirectActivityFlow ? computeInitialWeekOffset(initialDate) : 0;
@@ -218,10 +247,12 @@ export default function BookingsPage() {
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [confirmation, setConfirmation] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [calendarActivityDates, setCalendarActivityDates] = useState(new Set());
 
   const bookingEndpoint = isAuthenticated
     ? (user?.role === "klant" ? "/api/bookings/mine/" : "/api/bookings/")
     : null;
+  const datePickerLocale = language === "de" ? de : nl;
   const steps = t("bookingsPage.steps");
   const statusMeta = {
     nieuw: { label: t("bookingsPage.statuses.nieuw"), color: "warning" },
@@ -232,6 +263,10 @@ export default function BookingsPage() {
   };
 
   const selectedActivity = activities.find((activity) => String(activity.id) === String(form.activityId));
+  const activityById = useMemo(
+    () => Object.fromEntries(activities.map((activity) => [String(activity.id), activity])),
+    [activities]
+  );
   const selectedSlot = availableSlots.find((slot) => String(slot.id) === String(form.timeslotId));
   const planningMap = Object.fromEntries(allPlanningSlots.map((slot) => [slot.id, slot]));
   const groupedSlots = groupSlotsByDate(availableSlots);
@@ -299,6 +334,10 @@ export default function BookingsPage() {
       }
     } else if (form.date) {
       params.set("date", form.date);
+    } else {
+      setAvailableSlots([]);
+      setLoadingSlots(false);
+      return;
     }
 
     const response = await apiFetch(`/api/timeslots/available/?${params.toString()}`);
@@ -316,6 +355,28 @@ export default function BookingsPage() {
       setActiveStep(1);
     }
     setLoadingSlots(false);
+  };
+
+  const loadCalendarActivityDates = async () => {
+    const today = todayValue();
+    const rangeEnd = toDateKey(addMonths(new Date(), 6));
+    const params = new URLSearchParams({
+      available: "1",
+      date_from: today,
+      date_to: rangeEnd,
+    });
+
+    if (form.activityId) {
+      params.set("activity", form.activityId);
+    }
+
+    const response = await apiFetch(`/api/timeslots/available/?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(await parseApiError(response));
+    }
+
+    const payload = await response.json();
+    setCalendarActivityDates(new Set(payload.map((slot) => slot.starts_at.slice(0, 10))));
   };
 
   const loadDashboard = async () => {
@@ -378,6 +439,16 @@ export default function BookingsPage() {
 
     return () => window.clearInterval(intervalId);
   }, [form.activityId, form.date, isDirectActivityFlow, agendaWeekDays]);
+
+  useEffect(() => {
+    if (isDirectActivityFlow) {
+      return;
+    }
+
+    loadCalendarActivityDates().catch(() => {
+      setCalendarActivityDates(new Set());
+    });
+  }, [form.activityId, isDirectActivityFlow]);
 
   useEffect(() => {
     if (!autoAdvanceFromQueryRef.current || loadingSlots) {
@@ -489,25 +560,22 @@ export default function BookingsPage() {
       }
 
       const payload = await submissionResponse.json();
-      setConfirmation({
-        booking: payload,
-        slot: selectedSlot,
-        contactName: form.contactName,
-        contactEmail: form.contactEmail,
-      });
-      setForm({
-        activityId: isDirectActivityFlow ? lockedActivityId : "",
-        date: todayValue(),
-        timeslotId: "",
-        contactName: user?.first_name || user?.username || "",
-        contactEmail: user?.email || "",
-        contactPhone: "",
-        participants: 1,
-        notes: "",
-      });
-      setActiveStep(isDirectActivityFlow ? 1 : 0);
-      await Promise.all([loadActivities(), loadAvailableSlots(), ...(isAuthenticated ? [loadDashboard()] : [])]);
-      setError("");
+      if (payload?.payment?.checkout_url) {
+        window.location.assign(payload.payment.checkout_url);
+        return;
+      }
+
+      if (payload?.payment?.required === false) {
+        setConfirmation({
+          booking: payload.booking,
+          slot: selectedSlot,
+          contactName: form.contactName,
+          contactEmail: form.contactEmail,
+        });
+        return;
+      }
+
+      throw new Error(t("bookingsPage.paymentUnavailable"));
     } catch (err) {
       setError(err.message || t("bookingsPage.bookingFailed"));
     } finally {
@@ -545,7 +613,12 @@ export default function BookingsPage() {
               <Card
                 variant="outlined"
                 onClick={() => {
-                  setForm((current) => ({ ...current, activityId: String(activity.id), timeslotId: "" }));
+                  setForm((current) => ({
+                    ...current,
+                    activityId: String(activity.id),
+                    date: "",
+                    timeslotId: "",
+                  }));
                   setConfirmation(null);
                   setError("");
                 }}
@@ -564,12 +637,21 @@ export default function BookingsPage() {
                     <Typography variant="body2" color="text.secondary">
                       {t("bookingsPage.livePlanning")}
                     </Typography>
-                    <Chip
-                      label={isSelected ? t("common.selected") : t("common.clickToChoose")}
-                      color={isSelected ? "secondary" : "default"}
-                      size="small"
-                      sx={{ alignSelf: "flex-start" }}
-                    />
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      {activity.requires_payment && (
+                        <Chip
+                          label={t("bookingsPage.paymentRequired")}
+                          color="warning"
+                          size="small"
+                        />
+                      )}
+                      <Chip
+                        label={isSelected ? t("common.selected") : t("common.clickToChoose")}
+                        color={isSelected ? "secondary" : "success"}
+                        size="small"
+                        sx={{ alignSelf: "flex-start" }}
+                      />
+                    </Stack>
                   </Stack>
                 </CardContent>
               </Card>
@@ -854,8 +936,8 @@ export default function BookingsPage() {
 
   const renderTimeslotStep = () => (isDirectActivityFlow ? renderDirectAgendaStep() : (
     <Stack spacing={2.5}>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
-        <Box sx={{ flex: 1 }}>
+      <Stack spacing={1.25} alignItems="flex-start">
+        <Box>
           <Typography variant="h5">{t("bookingsPage.step2Title")}</Typography>
           <Typography color="text.secondary">
             {t("bookingsPage.lastUpdate", {
@@ -863,16 +945,46 @@ export default function BookingsPage() {
             })}
           </Typography>
         </Box>
-        <TextField
-          label={t("bookingsPage.preferredDate")}
-          type="date"
-          InputLabelProps={{ shrink: true }}
-          value={form.date}
-          onChange={(event) =>
-            setForm((current) => ({ ...current, date: event.target.value, timeslotId: "" }))
-          }
-          sx={{ minWidth: { sm: 220 } }}
-        />
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={datePickerLocale}>
+          <DatePicker
+            label={t("bookingsPage.preferredDate")}
+            value={parseDateKey(form.date)}
+            minDate={parseDateKey(todayValue())}
+            shouldDisableDate={(day) => !calendarActivityDates.has(toDateKey(day))}
+            onChange={(nextDate) => {
+              if (!nextDate || Number.isNaN(nextDate.getTime())) {
+                return;
+              }
+              setForm((current) => ({ ...current, date: toDateKey(nextDate), timeslotId: "" }));
+            }}
+            slots={{
+              day: (dayProps) => {
+                const hasActivity = calendarActivityDates.has(toDateKey(dayProps.day));
+                const showTransparent = !hasActivity || dayProps.outsideCurrentMonth;
+                return (
+                  <PickersDay
+                    {...dayProps}
+                    disabled={dayProps.disabled || !hasActivity}
+                    sx={{
+                      opacity: showTransparent ? 0.48 : 1,
+                      fontWeight: hasActivity ? 700 : 500,
+                      backgroundColor: showTransparent ? "transparent" : undefined,
+                      color: showTransparent ? "rgba(80, 67, 55, 0.62)" : undefined,
+                      "&.Mui-disabled": {
+                        opacity: showTransparent ? 0.48 : 0.5,
+                      },
+                    }}
+                  />
+                );
+              },
+            }}
+            slotProps={{
+              textField: {
+                sx: { minWidth: { sm: 260 } },
+              },
+            }}
+          />
+        </LocalizationProvider>
       </Stack>
 
       {loadingSlots && (
@@ -882,27 +994,39 @@ export default function BookingsPage() {
         </Stack>
       )}
 
-      {!loadingSlots && availableSlots.length === 0 && (
+      {!form.date && (
+        <Alert severity="info">
+          {t("bookingsPage.preferredDate")}
+        </Alert>
+      )}
+
+      {!loadingSlots && form.date && availableSlots.length === 0 && (
         <Alert severity="info">
           {t("bookingsPage.noAvailableSlots")}
         </Alert>
       )}
 
-      <Stack spacing={2}>
-        {Object.entries(groupedSlots).map(([date, slots]) => (
-          <Paper key={date} variant="outlined" sx={{ p: 2.5, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.78)" }}>
-            <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
-              {formatDate(date, locale)}
-            </Typography>
-            <Grid container spacing={2}>
-              {slots.map((slot) => {
+      {form.date && (
+        <Stack spacing={2}>
+          {Object.entries(groupedSlots).map(([date, slots]) => (
+            <Paper key={date} variant="outlined" sx={{ p: 2.5, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.78)" }}>
+              <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+                {formatDate(date, locale)}
+              </Typography>
+              <Grid container spacing={2}>
+                {slots.map((slot) => {
                 const selected = String(slot.id) === String(form.timeslotId);
                 const hasSpots = slot.available_spots > 0;
+                const slotActivity = activityById[String(slot.activity)];
+                const pricePerPerson = formatPricePerPerson(slotActivity?.price, locale);
                 return (
                   <Grid item xs={12} md={6} key={slot.id}>
                     <Card
                       variant="outlined"
-                      onClick={() =>
+                      onClick={() => {
+                        if (!hasSpots) {
+                          return;
+                        }
                         setForm((current) => ({
                           ...current,
                           timeslotId: String(slot.id),
@@ -910,68 +1034,74 @@ export default function BookingsPage() {
                             1,
                             Math.min(Number(current.participants || 1), Number(slot.available_spots || 1))
                           ),
-                        }))
-                      }
+                        }));
+                      }}
                       sx={{
-                        cursor: "pointer",
+                        cursor: hasSpots ? "pointer" : "default",
                         minHeight: "100%",
-                        borderRadius: 1.5,
-                        border: selected
-                          ? "2px solid rgba(68, 87, 168, 0.95)"
-                          : hasSpots
-                            ? "1px solid rgba(62, 122, 72, 0.45)"
-                            : "1px solid rgba(160, 47, 47, 0.5)",
-                        backgroundColor: hasSpots
-                          ? "rgba(216, 241, 219, 0.98)"
-                          : "rgba(248, 219, 219, 0.98)",
-                        boxShadow: hasSpots
-                          ? "inset 0 0 0 1px rgba(63, 128, 73, 0.1)"
-                          : "inset 0 0 0 1px rgba(171, 62, 62, 0.12)",
+                        borderRadius: 4,
+                        borderColor: selected ? "secondary.main" : "divider",
+                        background: selected
+                          ? "linear-gradient(135deg, rgba(145,97,52,0.10) 0%, rgba(255,255,255,0.95) 100%)"
+                          : "rgba(255,255,255,0.82)",
+                        opacity: hasSpots ? 1 : 0.72,
                       }}
                     >
                       <CardContent>
-                        <Stack spacing={0.1}>
+                        <Stack spacing={0.5}>
                           <Typography
-                            variant="caption"
+                            variant="h6"
                             sx={{
-                              display: "block",
-                              fontWeight: 700,
-                              lineHeight: 1.1,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
+                              fontSize: "1.25rem",
+                              fontWeight: 800,
                             }}
                           >
                             {slot.title}
                           </Typography>
-                          <Typography variant="caption" sx={{ display: "block", mt: 0.1, lineHeight: 1.1, opacity: 0.84 }}>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            <Chip
+                              label={selected ? t("common.selected") : t("common.clickToChoose")}
+                              color={selected ? "secondary" : "success"}
+                              size="small"
+                              sx={{ alignSelf: "flex-start" }}
+                            />
+                          </Stack>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mt: 0.1, fontWeight: 700, fontSize: "1.03rem", color: "text.primary" }}
+                          >
                             {formatDateTime(slot.starts_at, locale)} {t("bookingsPage.until")} {new Date(slot.ends_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
                           </Typography>
                           <Typography
-                            variant="caption"
+                            variant="body2"
+                            color="text.secondary"
                             sx={{
-                              display: "block",
                               mt: 0.05,
-                              fontWeight: 400,
-                              lineHeight: 1.1,
-                              opacity: 0.88,
+                              lineHeight: 1.35,
                             }}
                           >
                             {t("agenda.spotsCompact", { available: slot.available_spots, capacity: slot.capacity })}
                           </Typography>
-                          <Typography variant="caption" sx={{ display: "block", mt: 0.05, opacity: 0.78 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.05 }}>
                             {slot.room_name}
                           </Typography>
+                          {pricePerPerson && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.05, fontWeight: 600 }}>
+                              {pricePerPerson}
+                            </Typography>
+                          )}
                         </Stack>
                       </CardContent>
                     </Card>
                   </Grid>
-                );
-              })}
-            </Grid>
-          </Paper>
-        ))}
-      </Stack>
+                  );
+                })}
+              </Grid>
+            </Paper>
+          ))}
+        </Stack>
+      )}
     </Stack>
   ));
 

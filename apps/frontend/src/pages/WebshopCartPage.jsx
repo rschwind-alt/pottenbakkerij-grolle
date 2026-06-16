@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
 import { apiFetch, parseApiError } from "../lib/api";
@@ -9,6 +9,7 @@ import { formatPrice, getCartSummary, readCart, removeFromCart, updateCartQuanti
 
 export default function WebshopCartPage() {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [cartItems, setCartItems] = useState(() => readCart());
   const [checkoutForm, setCheckoutForm] = useState({
     customerName: "",
@@ -165,11 +166,7 @@ export default function WebshopCartPage() {
 
       setCartItems([]);
       writeCart([]);
-      setCheckoutSuccess(
-        language === "de"
-          ? `Bestellung erfolgreich gesendet${orderId ? ` (Nr. ${orderId})` : ""}.`
-          : `Bestelling succesvol verzonden${orderId ? ` (nr. ${orderId})` : ""}.`
-      );
+      navigate(`/landing/webshop/bedankt${orderId ? `?order=${orderId}` : ""}`, { replace: true });
     } catch (error) {
       setCheckoutError(error.message || (language === "de" ? "Bestelling kon niet worden verzonden." : "Bestelling kon niet worden verzonden."));
     } finally {

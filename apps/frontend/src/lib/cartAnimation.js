@@ -36,7 +36,7 @@ export function animateFlyToCart(sourceElement, imageUrl = "") {
     : "linear-gradient(180deg, rgba(207, 132, 117, 0.98) 0%, rgba(195, 119, 103, 0.98) 100%)";
   ghost.style.transform = "translate3d(0, 0, 0) scale(1)";
   ghost.style.opacity = "0.98";
-  ghost.style.transition = "transform 620ms cubic-bezier(0.16, 0.86, 0.24, 1), opacity 620ms ease";
+  ghost.style.transition = "transform 820ms cubic-bezier(0.16, 0.86, 0.24, 1), opacity 820ms ease";
 
   document.body.appendChild(ghost);
 
@@ -45,10 +45,10 @@ export function animateFlyToCart(sourceElement, imageUrl = "") {
 
   window.requestAnimationFrame(() => {
     ghost.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(0.12)`;
-    ghost.style.opacity = "0.1";
+    ghost.style.opacity = "0.08";
   });
 
   window.setTimeout(() => {
     ghost.remove();
-  }, 700);
+  }, 920);
 }

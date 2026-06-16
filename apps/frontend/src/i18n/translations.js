@@ -248,6 +248,13 @@ export const translations = {
       backToBookings: "Terug naar boeken",
       backToHome: "Terug naar home",
     },
+    webshopThankYouPage: {
+      eyebrow: "Webshop",
+      title: "Bedankt voor uw bestelling",
+      body: "U krijgt een bevestigingsmail en de bestelling ligt voor u klaar in de winkel.",
+      backToWebshop: "Terug naar webshop",
+      backToHome: "Naar home",
+    },
     statusCard: {
       title: "API Healthcheck",
       checking: "Controleren...",
@@ -723,6 +730,13 @@ export const translations = {
       pendingBody: "Wir warten noch auf die Bestätigung deiner Bank. Diese Seite aktualisiert sich automatisch.",
       backToBookings: "Zurück zur Buchung",
       backToHome: "Zurück zur Startseite",
+    },
+    webshopThankYouPage: {
+      eyebrow: "Webshop",
+      title: "Vielen Dank für deine Bestellung",
+      body: "Du erhältst eine Bestätigungs-E-Mail und deine Bestellung liegt für dich im Laden bereit.",
+      backToWebshop: "Zurück zum Webshop",
+      backToHome: "Zur Startseite",
     },
     statusCard: {
       title: "API-Healthcheck",

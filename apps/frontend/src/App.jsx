@@ -37,6 +37,7 @@ const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const WorkshopPage = lazy(() => import("./pages/WorkshopPage"));
 const WebshopProductPage = lazy(() => import("./pages/WebshopProductPage"));
 const WebshopCartPage = lazy(() => import("./pages/WebshopCartPage"));
+const WebshopThankYouPage = lazy(() => import("./pages/WebshopThankYouPage"));
 const WebshopPage = lazy(() => import("./pages/WebshopPage"));
 const WebshopAdminPage = lazy(() => import("./pages/WebshopAdminPage"));
 
@@ -335,6 +336,7 @@ export default function App() {
             <Route path="/landing/webshop/group/:groupSlug" element={<WebshopPage />} />
             <Route path="/landing/webshop/product/:slug" element={<WebshopProductPage />} />
             <Route path="/landing/webshop/cart" element={<WebshopCartPage />} />
+            <Route path="/landing/webshop/bedankt" element={<WebshopThankYouPage />} />
             <Route path="/landing/:categoryKey" element={<CategoryLandingPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/login" element={<LoginPage />} />

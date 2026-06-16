@@ -247,7 +247,7 @@ export default function HomePage() {
                   sx={{
                     fontSize: "0.8rem",
                     lineHeight: 1,
-                    transform: "scale(2)",
+                    transform: "scale(1.6)",
                     transformOrigin: "center top",
                     whiteSpace: "nowrap",
                     mt: 0.2,

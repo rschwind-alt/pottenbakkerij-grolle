@@ -225,7 +225,7 @@ export default function WebshopCartPage() {
                     <Typography variant="caption" color="text.secondary">
                       {language === "de" ? "Op voorraad" : "Op voorraad"}: {Number(stockByProduct[item.id] ?? item.stock_quantity ?? 0)}
                     </Typography>
-                    <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap">
+                    <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" sx={{ rowGap: 0.8 }}>
                       <Button size="small" variant="outlined" onClick={() => handleQuantityChange(item.id, -1)}>-</Button>
                       <Typography variant="body2" sx={{ minWidth: 16, textAlign: "center" }}>{item.quantity}</Typography>
                       <Button

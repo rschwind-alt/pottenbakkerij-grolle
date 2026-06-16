@@ -2,6 +2,7 @@ import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
+import { bookingButtonSx } from "../lib/buttonStyles";
 
 export default function ClayCafePage() {
   const { t } = useLanguage();
@@ -171,7 +172,7 @@ export default function ClayCafePage() {
               <Typography color="text.secondary" sx={{ lineHeight: 1.75 }}>
                 {t("clayCafePage.momentsBody")}
               </Typography>
-              <Button component={RouterLink} to="/bookings?activity=1" variant="contained" sx={{ alignSelf: "flex-start" }}>
+              <Button component={RouterLink} to="/bookings?activity=1" variant="contained" sx={[bookingButtonSx, { alignSelf: "flex-start" }]}>
                 {t("clayCafePage.momentsCta")}
               </Button>
             </Stack>
@@ -311,7 +312,7 @@ export default function ClayCafePage() {
                   variant="contained"
                   size="small"
                   startIcon={<Box component="img" src="/button-flower.svg" alt="" aria-hidden="true" sx={{ width: 15, height: 15, opacity: 0.9 }} />}
-                  sx={{ alignSelf: "flex-start", "&::before": { display: "none" }, pl: 2, "& .MuiButton-startIcon": { ml: 0.35, mr: 0.9 } }}
+                  sx={[bookingButtonSx, { alignSelf: "flex-start", "&::before": { display: "none" }, pl: 2, "& .MuiButton-startIcon": { ml: 0.35, mr: 0.9 } }]}
                 >
                   {t("clayCafePage.availabilityCta")}
                 </Button>
@@ -357,7 +358,7 @@ export default function ClayCafePage() {
                     variant="text"
                     size="medium"
                     startIcon={<Box component="img" src="/button-flower.svg" alt="" aria-hidden="true" sx={{ width: 14, height: 14, opacity: 0.9 }} />}
-                    sx={{ px: 0, minWidth: 0, mt: 0.35, alignSelf: "flex-start", fontSize: "0.95rem", "&::before": { display: "none" }, pl: 0.6, "& .MuiButton-startIcon": { ml: 0.25, mr: 0.85 } }}
+                    sx={[bookingButtonSx, { px: 0, minWidth: 0, mt: 0.35, alignSelf: "flex-start", fontSize: "0.95rem", "&::before": { display: "none" }, pl: 0.6, "& .MuiButton-startIcon": { ml: 0.25, mr: 0.85 } }]}
                   >
                     {t("clayCafePage.availabilitySlotCta")}
                   </Button>

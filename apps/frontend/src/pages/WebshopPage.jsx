@@ -4,6 +4,8 @@ import { Link as RouterLink, useParams } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
 import { apiFetch } from "../lib/api";
+import { bookingButtonSx } from "../lib/buttonStyles";
+import { animateFlyToCart } from "../lib/cartAnimation";
 import { addToCart, formatPrice, getCartSummary, readCart, writeCart } from "../lib/webshopCart";
 
 export default function WebshopPage() {
@@ -127,7 +129,7 @@ export default function WebshopPage() {
     [cartItems]
   );
 
-  const handleAddToCart = (product) => {
+  const handleAddToCart = (product, sourceElement = null) => {
     const availableStock = Number(product.stock_quantity || 0);
 
     setCartItems((current) => {
@@ -145,6 +147,7 @@ export default function WebshopPage() {
 
       const next = addToCart(current, product, availableStock);
       writeCart(next);
+      animateFlyToCart(sourceElement, product.image_url);
 
       setCartNoticeSeverity("success");
       setCartNotice(
@@ -193,8 +196,8 @@ export default function WebshopPage() {
                   : "Kies eerst een productgroep. Daarna zie je de bijbehorende producten.")}
             </Typography>
 
-            <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap">
-              <Button component={RouterLink} to="/landing/webshop/cart" variant="outlined">
+            <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap" sx={{ rowGap: 1 }}>
+              <Button component={RouterLink} to="/landing/webshop/cart" variant="outlined" sx={bookingButtonSx}>
                 {language === "de" ? `Warenkorb ansehen (${cartSummary.totalItems})` : `Bekijk winkelmand (${cartSummary.totalItems})`}
               </Button>
               {groupSlug && (
@@ -295,6 +298,7 @@ export default function WebshopPage() {
                 {products.map((product) => (
                   <Grid item xs={12} sm={6} md={4} key={product.id}>
                     <Card
+                      data-fly-card
                       variant="outlined"
                       sx={{
                         borderRadius: 3,
@@ -329,14 +333,14 @@ export default function WebshopPage() {
                             {formatPrice(product.price, language)}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {language === "de" ? "Op voorraad" : "Op voorraad"}: {Number(product.stock_quantity || 0)}
+                            {language === "de" ? "Op voorraad" : "Op voorraad"}: {Math.max(0, Number(product.stock_quantity || 0) - Number(cartQuantityByProduct[product.id] || 0))}
                           </Typography>
                           <Stack direction="column" spacing={1} alignItems="flex-start">
                             <Button
                               variant="contained"
                               size="small"
-                              onClick={() => handleAddToCart(product)}
-                              sx={{ width: "50%" }}
+                              onClick={(event) => handleAddToCart(product, event.currentTarget.closest("[data-fly-card]") || event.currentTarget)}
+                              sx={[bookingButtonSx, { width: "50%" }]}
                               disabled={
                                 Number(product.stock_quantity || 0) <= 0
                                 || Number(cartQuantityByProduct[product.id] || 0) >= Number(product.stock_quantity || 0)

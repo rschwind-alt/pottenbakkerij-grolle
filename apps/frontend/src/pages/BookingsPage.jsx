@@ -25,6 +25,7 @@ import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { useLanguage } from "../i18n/LanguageProvider";
 import { apiFetch, parseApiError } from "../lib/api";
+import { bookingButtonSx } from "../lib/buttonStyles";
 
 const ACTIVE_STATUSES = ["nieuw", "gereserveerd", "betaald"];
 const DESKTOP_TIMELINE_START_HOUR = 8.5;
@@ -1345,7 +1346,7 @@ export default function BookingsPage() {
               {t("common.next")}
             </Button>
           ) : (
-            <Button variant="contained" onClick={onSubmit} disabled={saving || !selectedSlot}>
+            <Button variant="contained" onClick={onSubmit} disabled={saving || !selectedSlot} sx={bookingButtonSx}>
               {saving ? t("bookingsPage.confirming") : t("bookingsPage.confirm")}
             </Button>
           )}

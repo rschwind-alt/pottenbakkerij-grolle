@@ -4,6 +4,8 @@ import { Link as RouterLink, useParams } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
 import { apiFetch } from "../lib/api";
+import { bookingButtonSx } from "../lib/buttonStyles";
+import { animateFlyToCart } from "../lib/cartAnimation";
 import { addToCart, formatPrice, readCart, writeCart } from "../lib/webshopCart";
 
 export default function WebshopProductPage() {
@@ -56,7 +58,7 @@ export default function WebshopProductPage() {
     };
   }, [slug, language]);
 
-  const handleAdd = () => {
+  const handleAdd = (sourceElement = null) => {
     if (!product) {
       return;
     }
@@ -78,6 +80,7 @@ export default function WebshopProductPage() {
 
     const next = addToCart(current, product, availableStock);
     writeCart(next);
+    animateFlyToCart(sourceElement, product.image_url);
     const updated = next.find((item) => item.id === product.id);
     setCurrentCartQuantity(Number(updated?.quantity || 0));
     setCartMessageSeverity("success");
@@ -117,6 +120,7 @@ export default function WebshopProductPage() {
             </Typography>
 
             <Box
+              data-fly-card
               component="img"
               src={product.image_url || "/menuicon5.png"}
               alt={product.name}
@@ -132,7 +136,7 @@ export default function WebshopProductPage() {
             </Typography>
 
             <Typography variant="body2" color="text.secondary">
-              {language === "de" ? "Op voorraad" : "Op voorraad"}: {Number(product.stock_quantity || 0)}
+              {language === "de" ? "Op voorraad" : "Op voorraad"}: {Math.max(0, Number(product.stock_quantity || 0) - currentCartQuantity)}
             </Typography>
 
             {cartMessage && <Alert severity={cartMessageSeverity}>{cartMessage}</Alert>}
@@ -140,7 +144,8 @@ export default function WebshopProductPage() {
             <Stack direction="row" spacing={1.2} flexWrap="wrap">
               <Button
                 variant="contained"
-                onClick={handleAdd}
+                onClick={(event) => handleAdd(document.querySelector("[data-fly-card]") || event.currentTarget)}
+                sx={bookingButtonSx}
                 disabled={
                   Number(product.stock_quantity || 0) <= 0
                   || currentCartQuantity >= Number(product.stock_quantity || 0)

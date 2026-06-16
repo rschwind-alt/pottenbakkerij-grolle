@@ -2,6 +2,7 @@ import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
+import { bookingButtonSx } from "../lib/buttonStyles";
 
 export default function WorkshopPage() {
   const { t } = useLanguage();
@@ -138,7 +139,7 @@ export default function WorkshopPage() {
                 </Stack>
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} pt={1}>
-                  <Button component={RouterLink} to="/bookings" variant="contained" size="large">
+                  <Button component={RouterLink} to="/bookings" variant="contained" size="large" sx={bookingButtonSx}>
                     {t("workshopPage.ctaPrimary")}
                   </Button>
                   <Button component={RouterLink} to="/contact" variant="outlined" size="large">

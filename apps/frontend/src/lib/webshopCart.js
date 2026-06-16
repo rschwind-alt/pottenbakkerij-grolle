@@ -21,6 +21,7 @@ export function readCart() {
 export function writeCart(items) {
   try {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent("cart-updated"));
   } catch {
     // Ignore storage errors and keep in-memory state.
   }

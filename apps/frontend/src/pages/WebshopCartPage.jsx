@@ -4,6 +4,7 @@ import { Link as RouterLink } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
 import { apiFetch, parseApiError } from "../lib/api";
+import { bookingButtonSx } from "../lib/buttonStyles";
 import { formatPrice, getCartSummary, readCart, removeFromCart, updateCartQuantity, writeCart } from "../lib/webshopCart";
 
 export default function WebshopCartPage() {
@@ -281,8 +282,8 @@ export default function WebshopCartPage() {
             {checkoutError && <Alert severity="error">{checkoutError}</Alert>}
             {checkoutSuccess && <Alert severity="success">{checkoutSuccess}</Alert>}
 
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              <Button variant="contained" onClick={handleCheckout} disabled={checkoutLoading || cartItems.length === 0}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1 }}>
+              <Button variant="contained" onClick={handleCheckout} disabled={checkoutLoading || cartItems.length === 0} sx={bookingButtonSx}>
                 {checkoutLoading
                   ? (language === "de" ? "Wird gesendet..." : "Verzenden...")
                   : (language === "de" ? "Bestellung senden" : "Bestelling versturen")}

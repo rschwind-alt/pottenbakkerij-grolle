@@ -4,6 +4,7 @@ import { Link as RouterLink, useSearchParams } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
 import { apiFetch } from "../lib/api";
+import { bookingButtonSx } from "../lib/buttonStyles";
 
 export default function PaymentReturnPage() {
   const { t, locale } = useLanguage();
@@ -112,7 +113,7 @@ export default function PaymentReturnPage() {
               )}
 
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <Button component={RouterLink} to="/bookings" variant="contained">
+                <Button component={RouterLink} to="/bookings" variant="contained" sx={bookingButtonSx}>
                   {t("paymentPage.backToBookings")}
                 </Button>
                 <Button component={RouterLink} to="/" variant="outlined">

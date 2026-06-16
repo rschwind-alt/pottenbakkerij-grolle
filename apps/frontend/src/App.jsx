@@ -1,6 +1,7 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import {
   AppBar,
+  Badge,
   Box,
   Button,
   Chip,
@@ -51,6 +52,26 @@ export default function App() {
   const isGrolleRoute = location.pathname === "/over-grolle";
   const isWideLayoutRoute = isHomeRoute || isLandingRoute || isContactRoute || isBookingsRoute || isGrolleRoute;
   const isHamburgerOpen = Boolean(menuAnchorEl);
+
+  const [cartCount, setCartCount] = useState(0);
+  useEffect(() => {
+    function syncCart() {
+      try {
+        const raw = localStorage.getItem("grolle_webshop_cart");
+        const items = raw ? JSON.parse(raw) : [];
+        setCartCount(Array.isArray(items) ? items.reduce((sum, item) => sum + Number(item.quantity || 0), 0) : 0);
+      } catch {
+        setCartCount(0);
+      }
+    }
+    syncCart();
+    window.addEventListener("cart-updated", syncCart);
+    window.addEventListener("storage", syncCart);
+    return () => {
+      window.removeEventListener("cart-updated", syncCart);
+      window.removeEventListener("storage", syncCart);
+    };
+  }, []);
 
   const handleOpenHamburger = (event) => {
     setMenuAnchorEl(event.currentTarget);
@@ -206,6 +227,19 @@ export default function App() {
                 </Button>
               </>
             )}
+            <IconButton
+              id="header-cart-button"
+              component={RouterLink}
+              to={cartCount > 0 ? "/landing/webshop/cart" : "/landing/webshop"}
+              color="secondary"
+              aria-label={language === "de" ? "Warenkorb" : "Winkelmand"}
+            >
+              <Badge badgeContent={cartCount > 0 ? cartCount : null} color="error" overlap="circular">
+                <SvgIcon viewBox="0 0 24 24">
+                  <path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM5.2 4H2V2H0v2h2l3.6 7.59L4.25 14C4.09 14.32 4 14.65 4 15c0 1.1.9 2 2 2h14v-2H6.42a.25.25 0 0 1-.25-.25l.03-.12L7.1 13h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 4H5.2z"/>
+                </SvgIcon>
+              </Badge>
+            </IconButton>
             <IconButton
               color="secondary"
               aria-label="Menu"

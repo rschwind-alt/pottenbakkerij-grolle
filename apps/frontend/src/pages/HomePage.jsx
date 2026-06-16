@@ -533,12 +533,18 @@ export default function HomePage() {
                                   alignSelf: "flex-start",
                                   mt: 0.6,
                                   borderRadius: 999,
-                                  backgroundColor: "#cf8475",
+                                  border: "1px solid rgba(140, 82, 67, 0.95)",
                                   color: "#fffaf7",
+                                  backgroundColor: "transparent",
+                                  backgroundImage: "linear-gradient(180deg, rgba(207, 132, 117, 0.98) 0%, rgba(195, 119, 103, 0.98) 100%)",
                                   pl: 5.6,
                                   pr: 2,
                                   py: 0.65,
-                                  "&:hover": { backgroundColor: "#bb6b5b" },
+                                  "&:hover": {
+                                    border: "1px solid rgba(127, 69, 56, 0.98)",
+                                    backgroundColor: "transparent",
+                                    backgroundImage: "linear-gradient(180deg, rgba(187, 107, 91, 0.98) 0%, rgba(175, 94, 79, 0.98) 100%)",
+                                  },
                                 }}
                               >
                                 {t("home.agendaBookNow")}

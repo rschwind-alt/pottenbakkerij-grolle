@@ -3,6 +3,8 @@ import { Alert, Box, Button, Card, CardContent, CircularProgress, Grid, Paper, S
 import { Link as RouterLink, useParams } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
+import { bookingButtonSx } from "../lib/buttonStyles";
+import { animateFlyToCart } from "../lib/cartAnimation";
 import { apiFetch } from "../lib/api";
 import { addToCart, formatPrice, getCartSummary, readCart, writeCart } from "../lib/webshopCart";
 
@@ -78,6 +80,7 @@ export default function CategoryLandingPage() {
 
   const safeKey = CONTENT[categoryKey] ? categoryKey : "workshop";
   const copy = CONTENT[safeKey][language] || CONTENT[safeKey].nl;
+  const showBookingsButton = safeKey !== "keramiek" && safeKey !== "sieraden";
   const iconSrc = CATEGORY_IMAGES[safeKey];
   const isWebshop = safeKey === "webshop";
 
@@ -138,10 +141,11 @@ export default function CategoryLandingPage() {
 
   const cartSummary = useMemo(() => getCartSummary(cartItems), [cartItems]);
 
-  const handleAddToCart = (product) => {
+  const handleAddToCart = (product, sourceElement = null) => {
     setCartItems((current) => {
       const next = addToCart(current, product);
       writeCart(next);
+      animateFlyToCart(sourceElement, product.image_url);
       return next;
     });
   };
@@ -192,7 +196,7 @@ export default function CategoryLandingPage() {
               </Typography>
 
               <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap">
-                <Button component={RouterLink} to="/landing/webshop/cart" variant="outlined">
+                <Button component={RouterLink} to="/landing/webshop/cart" variant="outlined" sx={bookingButtonSx}>
                   {language === "de" ? `Warenkorb ansehen (${cartSummary.totalItems})` : `Bekijk winkelmand (${cartSummary.totalItems})`}
                 </Button>
                 {cartNotice && <Alert severity="success">{cartNotice}</Alert>}
@@ -224,6 +228,7 @@ export default function CategoryLandingPage() {
                       {products.map((product) => (
                         <Grid item xs={12} sm={6} md={4} key={product.id}>
                           <Card
+                            data-fly-card
                             variant="outlined"
                             sx={{
                               borderRadius: 3,
@@ -261,15 +266,15 @@ export default function CategoryLandingPage() {
                                   <Button
                                     variant="contained"
                                     size="small"
-                                    onClick={() => {
-                                      handleAddToCart(product);
+                                    onClick={(event) => {
+                                      handleAddToCart(product, event.currentTarget.closest("[data-fly-card]") || event.currentTarget);
                                       setCartNotice(
                                         language === "de"
                                           ? `${product.name} zum Warenkorb hinzugefuegt.`
                                           : `${product.name} toegevoegd aan je winkelmand.`
                                       );
                                     }}
-                                    sx={{ width: "50%" }}
+                                    sx={[bookingButtonSx, { width: "50%" }]}
                                   >
                                     {language === "de" ? "In den Warenkorb" : "Koop"}
                                   </Button>
@@ -338,9 +343,11 @@ export default function CategoryLandingPage() {
               {copy.body}
             </Typography>
             <Stack direction="row" spacing={1.25} flexWrap="wrap">
-              <Button component={RouterLink} to="/bookings" variant="contained">
-                {t("common.bookings")}
-              </Button>
+              {showBookingsButton && (
+                <Button component={RouterLink} to="/bookings" variant="contained" sx={bookingButtonSx}>
+                  {t("common.bookings")}
+                </Button>
+              )}
               <Button component={RouterLink} to="/" variant="outlined">
                 {t("common.home")}
               </Button>

@@ -2,6 +2,7 @@ import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageProvider";
+import { bookingButtonSx } from "../lib/buttonStyles";
 
 const CATEGORY_IMAGES = {
   keramiek: "/menuicon1.png",
@@ -116,6 +117,7 @@ export default function LandingPage() {
               to="/bookings"
               variant="contained"
               size="large"
+              sx={bookingButtonSx}
             >
               {data.cta}
             </Button>

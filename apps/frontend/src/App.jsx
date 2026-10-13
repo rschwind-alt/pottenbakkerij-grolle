@@ -26,6 +26,7 @@ import { useLanguage } from "./i18n/LanguageProvider";
 const BookingsPage = lazy(() => import("./pages/BookingsPage"));
 const CategoryLandingPage = lazy(() => import("./pages/CategoryLandingPage"));
 const ClayCafePage = lazy(() => import("./pages/ClayCafePage"));
+const ComingSoonPage = lazy(() => import("./pages/ComingSoonPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const GrolleStoryPage = lazy(() => import("./pages/GrolleStoryPage"));
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -47,11 +48,13 @@ export default function App() {
   const location = useLocation();
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const isHomeRoute = location.pathname === "/";
+  const isPreviewRoute = location.pathname === "/preview";
+  const isComingSoonRoute = isHomeRoute;
   const isLandingRoute = location.pathname.startsWith("/landing/");
   const isContactRoute = location.pathname === "/contact";
   const isBookingsRoute = location.pathname.startsWith("/bookings");
   const isGrolleRoute = location.pathname === "/over-grolle";
-  const isWideLayoutRoute = isHomeRoute || isLandingRoute || isContactRoute || isBookingsRoute || isGrolleRoute;
+  const isWideLayoutRoute = isHomeRoute || isPreviewRoute || isLandingRoute || isContactRoute || isBookingsRoute || isGrolleRoute;
   const isHamburgerOpen = Boolean(menuAnchorEl);
 
   const [cartCount, setCartCount] = useState(0);
@@ -97,12 +100,13 @@ export default function App() {
     <Box
       sx={{
         minHeight: "100vh",
-        background:
-          "radial-gradient(circle at 20% 20%, #e6d4be 0%, transparent 35%), linear-gradient(180deg, #f3eee8 0%, #e7dfd6 100%)",
-        py: 4,
+        background: isComingSoonRoute
+          ? "#f3eee8"
+          : "radial-gradient(circle at 20% 20%, #e6d4be 0%, transparent 35%), linear-gradient(180deg, #f3eee8 0%, #e7dfd6 100%)",
+        py: isComingSoonRoute ? 0 : 4,
       }}
     >
-      <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 4 }}>
+      {!isComingSoonRoute && <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 4 }}>
         <Toolbar
           sx={{
             justifyContent: "space-between",
@@ -112,7 +116,7 @@ export default function App() {
         >
           <Box
             component={RouterLink}
-            to="/"
+            to={isPreviewRoute ? "/preview" : "/"}
             aria-label={t("common.home")}
             title={t("common.home")}
             sx={{
@@ -261,7 +265,7 @@ export default function App() {
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
             >
-              <MenuItem component={RouterLink} to="/" onClick={handleCloseHamburger}>
+              <MenuItem component={RouterLink} to={isPreviewRoute ? "/preview" : "/"} onClick={handleCloseHamburger}>
                 {t("common.home")}
               </MenuItem>
               <MenuItem component={RouterLink} to="/landing/webshop" onClick={handleCloseHamburger}>
@@ -320,15 +324,16 @@ export default function App() {
             </Menu>
           </Stack>
         </Toolbar>
-      </AppBar>
+      </AppBar>}
       <Container
-        maxWidth={isWideLayoutRoute ? false : "lg"}
-        disableGutters={isWideLayoutRoute}
-        sx={{ px: isWideLayoutRoute ? 0 : undefined }}
+        maxWidth={isWideLayoutRoute || isComingSoonRoute ? false : "lg"}
+        disableGutters={isWideLayoutRoute || isComingSoonRoute}
+        sx={{ px: isWideLayoutRoute || isComingSoonRoute ? 0 : undefined }}
       >
         <Suspense fallback={<Box sx={{ px: 3, py: 6 }}><Typography>{t("common.loading")}</Typography></Box>}>
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<ComingSoonPage />} />
+            <Route path="/preview" element={<HomePage />} />
             <Route path="/landing/claycafe" element={<ClayCafePage />} />
             <Route path="/over-grolle" element={<GrolleStoryPage />} />
             <Route path="/landing/workshop" element={<WorkshopPage />} />

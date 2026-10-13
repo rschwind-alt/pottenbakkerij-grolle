@@ -379,6 +379,50 @@ export default function App() {
           </Routes>
         </Suspense>
       </Container>
+      <Box
+        aria-hidden="true"
+        sx={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1200,
+          overflow: "hidden",
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "-40vh",
+            left: "-45vw",
+            width: "190vw",
+            height: "180vh",
+            display: "grid",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gridTemplateRows: "repeat(6, minmax(0, 1fr))",
+            transform: "rotate(-24deg)",
+          }}
+        >
+          {Array.from({ length: 24 }, (_, index) => (
+            <Typography
+              key={index}
+              sx={{
+                alignSelf: "center",
+                justifySelf: "center",
+                color: "rgba(28, 76, 51, 0.28)",
+                fontFamily: '"Cormorant Garamond", Georgia, serif',
+                fontSize: { xs: "1.1rem", sm: "1.55rem", md: "2rem" },
+                fontWeight: 900,
+                letterSpacing: "0.14em",
+                whiteSpace: "nowrap",
+                textShadow: "0 1px 0 rgba(28, 76, 51, 0.12)",
+              }}
+            >
+              PREVIEW WEBSITE
+            </Typography>
+          ))}
+        </Box>
+      </Box>
     </Box>
   );
 }
